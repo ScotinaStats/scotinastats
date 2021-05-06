@@ -1,0 +1,204 @@
+---
+title: 'Taking a Vacation with #TidyTuesday hotel bookings'
+author: Anthony Scotina
+date: '2020-07-30'
+slug: hotel-bookings-tidymodels
+categories: []
+tags:
+  - rstats
+  - tidytuesday
+  - tidymodels
+subtitle: ''
+summary: ''
+authors: []
+lastmod: '2021-05-06T10:04:01-04:00'
+featured: no
+image:
+  caption: ''
+  focal_point: ''
+  preview_only: true
+projects: []
+---
+
+<script src="{{< blogdown/postref >}}index_files/header-attrs/header-attrs.js"></script>
+
+
+<p>The <a href="https://www.tidymodels.org/">tidymodels</a> suite of packages is fantastic. As the website states, <code>tidymodels</code> “is a collection of packages for modeling and machine learning using <code>tidyverse</code> principles”. These packages range from tools used to split your data into training and testing sets, to tools for optimizing model hyperparameters.</p>
+<p>We’ll build a simple machine learning model to predict the hotel stay <strong>season</strong>, using <a href="https://github.com/rfordatascience/tidytuesday/blob/master/data/2020/2020-02-11/readme.md">hotel bookings data</a> from TidyTuesday. This dataset originally comes from a paper by <a href="https://www.sciencedirect.com/science/article/pii/S2352340918315191#f0010">Antonio, Almeida, and Nunes (2019)</a>, which states that the hotels are located in Portugal.</p>
+<pre class="r"><code>library(tidyverse)
+library(tidymodels)
+
+hotels &lt;- read_csv(&#39;https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-02-11/hotels.csv&#39;)</code></pre>
+<div id="exploring-the-data" class="section level1">
+<h1>Exploring the data</h1>
+<p>I’m choosing to build a model to predict <strong>season</strong>, rather than <em>month</em>, because modeling a variable with four classes is simpler! Plus, I’m assuming that we’ll see some of the same trends within each month of a given season; but let’s check, just to be safe.</p>
+<p>First, we’ll filter out the canceled reservations, convert <em>month</em> to a factor, and create a binary variable for stays <em>with</em> or <em>without</em> children, and then we’ll build a visualization showing monthly trends in stays at different <em>types</em> of hotels.</p>
+<pre class="r"><code>hotels_df &lt;- hotels %&gt;%
+  filter(is_canceled == 0) %&gt;%
+  mutate(arrival_date_month = fct_relevel(arrival_date_month, levels = month.name), 
+         any_kids = ifelse(children + babies &gt; 0, &quot;w/ children&quot;, &quot;w/o children&quot;)) 
+
+hotels_df %&gt;%
+  count(arrival_date_month, hotel) %&gt;%
+  ggplot(aes(x = arrival_date_month, y = n, fill = hotel)) + 
+  geom_col(position = &quot;dodge&quot;) +
+  labs(x = NULL, y = &quot;Frequency&quot;, fill = NULL) +
+  coord_flip() </code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-2-1.png" width="672" /></p>
+<p>It doesn’t look like hotel <em>type</em> is exactly homogeneous within each of the four seasons’ months, assuming the typical northern hemisphere seasons. While overall there are more stays at city hotels, both city and resort hotel stays spike during July and August, probably (at least partially) related to children being out of school and the warmer weather.</p>
+<p>Let’s see how this looks when we factor in whether or not a stay includes children/babies, after converting to a proportion scale:</p>
+<pre class="r"><code>hotels_df %&gt;%
+  count(arrival_date_month, hotel, any_kids) %&gt;%
+  group_by(hotel, any_kids) %&gt;%
+  mutate(prop = n/sum(n)) %&gt;%
+  ggplot(aes(x = arrival_date_month, y = prop, fill = hotel)) + 
+  geom_col(position = &quot;dodge&quot;) +
+  facet_wrap( ~ any_kids) +
+  labs(x = NULL, y = &quot;Percent of hotel stays&quot;, fill = NULL) +
+  scale_y_continuous(labels = scales::percent_format()) +
+  coord_flip() </code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-3-1.png" width="672" /></p>
+<p>It looks like a significantly higher percent of stays <em>with children</em> occur during the summer months, whereas stay frequency by month is relatively stable when the kids aren’t involved. Let’s see how this looks when we consider <em>season</em> rather than month:</p>
+<pre class="r"><code>hotels_df &lt;- hotels_df %&gt;%
+  mutate(season = 
+           case_when(arrival_date_month %in% c(&quot;April&quot;, &quot;May&quot;, &quot;June&quot;) ~ &quot;Spring&quot;, 
+                     arrival_date_month %in% c(&quot;July&quot;, &quot;August&quot;, &quot;September&quot;) ~ &quot;Summer&quot;, 
+                     arrival_date_month %in% c(&quot;October&quot;, &quot;November&quot;, &quot;December&quot;) ~ &quot;Fall&quot;, 
+                     arrival_date_month %in% c(&quot;January&quot;, &quot;February&quot;, &quot;March&quot;) ~ &quot;Winter&quot;)) %&gt;%
+  mutate(season = fct_relevel(season, 
+                              levels = &quot;Spring&quot;, &quot;Summer&quot;, &quot;Fall&quot;, &quot;Winter&quot;))</code></pre>
+<p>(Note that these aren’t the <em>exact</em> ranges for the different seasons, but that’s okay!)</p>
+<pre class="r"><code>hotels_df %&gt;%
+  count(season, hotel, any_kids) %&gt;%
+  group_by(hotel, any_kids) %&gt;%
+  mutate(prop = n/sum(n)) %&gt;%
+  ggplot(aes(x = season, y = prop, fill = hotel)) + 
+  geom_col(position = &quot;dodge&quot;) +
+  facet_wrap( ~ any_kids) +
+  labs(x = NULL, y = &quot;Percent of hotel stays&quot;, fill = NULL) +
+  scale_y_continuous(labels = scales::percent_format()) </code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-5-1.png" width="672" /></p>
+<p>It looks like we see the same overall trends! Now onto the model building…</p>
+</div>
+<div id="modeling" class="section level1">
+<h1>Modeling</h1>
+<p>Before we get to the model fitting, let’s select a subset of the columns we’re interested in, and convert any characters to factors:</p>
+<pre class="r"><code>hotels_df &lt;- hotels_df %&gt;%
+  select(season, hotel, lead_time, stays_in_weekend_nights, stays_in_week_nights, meal, 
+         deposit_type, adr, required_car_parking_spaces, total_of_special_requests, any_kids, 
+         arrival_date_month) %&gt;%
+  mutate_if(is.character, factor)</code></pre>
+<div id="data-splitting" class="section level2">
+<h2>Data Splitting</h2>
+<p>We’ll use some <code>rsample</code> functions to split the data into <em>training</em> and <em>testing</em> sets, using an 80%/20% split stratified on <code>season</code>. We’ll train the model on the training set, and we’ll leave the testing set to the side until we evaluate the model.</p>
+<pre class="r"><code>set.seed(228)
+hotel_split &lt;- initial_split(hotels_df, strata = season) 
+hotel_train &lt;- training(hotel_split)
+hotel_test &lt;- testing(hotel_split)</code></pre>
+<p>Leaving the testing set in a dark, dusty corner until model evaluation is key to avoiding <em>data leakage</em> during the model fitting stage. For example, any additional data cleaning and preprocessing in the model fitting stage <em>must</em> be performed on the training set and the training set alone! Enter: recipes.</p>
+</div>
+<div id="data-preprocessing-with-recipes" class="section level2">
+<h2>Data Preprocessing with Recipes</h2>
+<p>Recipes play a significant role in defining the <strong>roles</strong> of different variables. In fact, that’s really the bare minimum amount of preprocessing we need! In statistical terminology, we might think of these variables as the <em>outcome</em> and the <em>explanatory</em> variables; in recipes, specifically the <code>recipe()</code> function, we define these variables using an R <strong>formula</strong>, <code>y ~ x1 + x2 + ...</code> or simply <code>y ~ .</code>.</p>
+<p>Recipes can perform a number of other preprocessing tricks, too, some of which I’ll be using in our model.</p>
+<ol style="list-style-type: decimal">
+<li><p>Define the roles of each variable from <code>hotels_df</code> in the model. We’ll have an <em>outcome</em> and some <em>explanatory</em> variables, but one might also have variables that serve other “support” roles, such as <code>id</code>. We don’t want to fit a model on this column, but we might want to hold onto it for later when evaluating the model.</p></li>
+<li><p>We kept <code>arrival_date_month</code> in the dataset to help with checking individual predictions, but we don’t want to use it as an explanatory variable the model fit. Therefore we’ll update its role to an “id” variable.</p></li>
+<li><p>We’ll convert any non-outcome factor variables to <em>indicator</em> variables, using <code>step_dummy()</code>. A nice thing about <code>step_dummy()</code> is that we can apply this to all nominal variables at once, but at the same time tell R to <em>not</em> apply it to our categorical <em>outcome</em>.</p></li>
+<li><p>Finally, we will remove any columns from the training set that have only a single value, or <em>zero-variance predictors</em>.</p></li>
+</ol>
+<pre class="r"><code>hotel_rec &lt;- recipe(season ~ ., data = hotel_train) %&gt;%
+  update_role(arrival_date_month, new_role = &quot;id&quot;) %&gt;%
+  step_dummy(all_nominal(), -all_outcomes(), -has_role(&quot;id&quot;)) %&gt;%
+  step_zv(all_predictors())
+
+hotel_rec</code></pre>
+<pre><code>## Data Recipe
+## 
+## Inputs:
+## 
+##       role #variables
+##         id          1
+##    outcome          1
+##  predictor         10
+## 
+## Operations:
+## 
+## Dummy variables from all_nominal(), -all_outcomes(), -has_role(&quot;id&quot;)
+## Zero variance filter on all_predictors()</code></pre>
+<p>There are <em>so many</em> other cool tricks one could use in pre-processing the data: imputation, normalization, functions for handling dates, and many more. Recipes with <code>recipes</code> are great!</p>
+</div>
+<div id="model-specification-and-workflow" class="section level2">
+<h2>Model Specification and Workflow</h2>
+<p>One of the best features of <code>tidymodels</code> is that it sets a common language when building different types of models that use different “engines.” I’m going to train a <strong>random forest</strong> model, but there are actually two commonly-used “engines” of random forest models in R: the <code>ranger</code> and the <code>randomForest</code> engines. Each of these fit random forests, but using slightly different naming conventions (e.g., <code>num.trees</code> vs <code>ntree</code> for the number of trees in the model). Under the <code>tidymodels</code> framework, these are just called <code>trees</code>, regardless of the engine we choose.</p>
+<p>We’ll <em>specify</em> a random forest model using the <code>ranger</code> engine.</p>
+<pre class="r"><code>rf_spec &lt;- rand_forest() %&gt;%
+  set_engine(&quot;ranger&quot;) %&gt;%
+  set_mode(&quot;classification&quot;)</code></pre>
+<p>Notice that we still haven’t actually <em>fit</em> the model. Before we do that, we have to combine the model specification and the recipe into a <strong>workflow</strong>. This will ensure that both fitting the model and testing new predictions takes into account all of the preprocessing we’ve done.</p>
+<pre class="r"><code>hotel_wf &lt;- workflow() %&gt;%
+  add_recipe(hotel_rec) %&gt;%
+  add_model(rf_spec)
+
+hotel_wf</code></pre>
+<pre><code>## ══ Workflow ════════════════════════════════════════════════════════════════════
+## Preprocessor: Recipe
+## Model: rand_forest()
+## 
+## ── Preprocessor ────────────────────────────────────────────────────────────────
+## 2 Recipe Steps
+## 
+## • step_dummy()
+## • step_zv()
+## 
+## ── Model ───────────────────────────────────────────────────────────────────────
+## Random Forest Model Specification (classification)
+## 
+## Computational engine: ranger</code></pre>
+</div>
+<div id="model-fitting-and-evaluation" class="section level2">
+<h2>Model Fitting and Evaluation</h2>
+<p>It’s time to fit the model! This is straightforward after defining the workflow.</p>
+<pre class="r"><code>hotel_rf &lt;- hotel_wf %&gt;%
+  fit(hotel_train)</code></pre>
+<p>Now that we have a model fit, we can dust off the <strong>testing set</strong> and look at some metrics that compare the true and predicted values. We can use <code>metrics()</code> from <code>yardstick</code> to generate prediction metrics for the model.</p>
+<pre class="r"><code>mod_eval &lt;- hotel_test %&gt;%
+  bind_cols(predict(hotel_rf, hotel_test)) %&gt;%
+  rename(.pred_rf = .pred_class)
+
+mod_eval %&gt;%
+  metrics(season, .pred_rf)</code></pre>
+<pre><code>## # A tibble: 2 x 3
+##   .metric  .estimator .estimate
+##   &lt;chr&gt;    &lt;chr&gt;          &lt;dbl&gt;
+## 1 accuracy multiclass     0.615
+## 2 kap      multiclass     0.480</code></pre>
+<p>We’ll do the same with the training set to check for overfitting.</p>
+<pre class="r"><code>mod_eval_train &lt;- hotel_train %&gt;%
+  bind_cols(predict(hotel_rf, hotel_train)) %&gt;%
+  rename(.pred_rf = .pred_class)
+
+mod_eval_train %&gt;%
+  metrics(season, .pred_rf)</code></pre>
+<pre><code>## # A tibble: 2 x 3
+##   .metric  .estimator .estimate
+##   &lt;chr&gt;    &lt;chr&gt;          &lt;dbl&gt;
+## 1 accuracy multiclass     0.702
+## 2 kap      multiclass     0.598</code></pre>
+<p>So overall the accuracy appears to be <em>okay</em>, but not incredibly great. One thing I’m curious about is whether the model might be less precise in predicting seasons for hotel stays right on the <em>cusp</em> of one season. For example, is the model more likely to incorrectly classify a hotel stay in <em>May</em> or <em>June</em> as <code>Summer</code>?</p>
+<p>Let’s take a look…</p>
+<pre class="r"><code>mod_eval %&gt;%
+  filter(season != .pred_rf) %&gt;%
+  count(.pred_rf, arrival_date_month) %&gt;%
+  group_by(.pred_rf) %&gt;%
+  mutate(prop = n/sum(n)) %&gt;%
+  ggplot(aes(x = arrival_date_month, y = prop, fill = .pred_rf)) +
+  geom_col(position = &quot;dodge&quot;) + 
+  labs(x = NULL, y = &quot;Percent of hotel stays&quot;, fill = &quot;(Incorrectly) Predicted Season&quot;) +
+  scale_y_continuous(labels = scales::percent_format()) + 
+  coord_flip()</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-15-1.png" width="672" /></p>
+<p>It looks like the model performance might dip for hotel stays right on the cusp between seasons. For example, hotels stays in the testing set <em>incorrectly predicted as “Summer”</em> are more likely to take place in June than any other month (remember, we categorized June as “Spring” in this model). I don’t think this is directly related to using <code>Season</code> as a simplified version of <code>arrival_date_month</code>; I’m guessing we would see similar trends if we used <code>arrival_date_month</code> as the outcome directly.</p>
+<p>As they say, all models are wrong!</p>
+</div>
+</div>

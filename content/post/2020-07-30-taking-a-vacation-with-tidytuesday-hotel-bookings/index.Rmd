@@ -1,0 +1,246 @@
+---
+title: 'Taking a Vacation with #TidyTuesday hotel bookings'
+author: Anthony Scotina
+date: '2020-07-30'
+slug: hotel-bookings-tidymodels
+categories: []
+tags:
+  - rstats
+  - tidytuesday
+  - tidymodels
+subtitle: ''
+summary: ''
+authors: []
+lastmod: '2021-05-06T10:04:01-04:00'
+featured: no
+image:
+  caption: ''
+  focal_point: ''
+  preview_only: true
+projects: []
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(tidymodels)
+
+hotels <- read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-02-11/hotels.csv')
+
+theme_set(theme_minimal())
+```
+
+The [tidymodels](https://www.tidymodels.org/) suite of packages is fantastic. As the website states, `tidymodels` "is a collection of packages for modeling and machine learning using `tidyverse` principles". These packages range from tools used to split your data into training and testing sets, to tools for optimizing model hyperparameters. 
+
+We'll build a simple machine learning model to predict the hotel stay **season**, using [hotel bookings data](https://github.com/rfordatascience/tidytuesday/blob/master/data/2020/2020-02-11/readme.md) from TidyTuesday. This dataset originally comes from a paper by [Antonio, Almeida, and Nunes (2019)](https://www.sciencedirect.com/science/article/pii/S2352340918315191#f0010), which states that the hotels are located in Portugal. 
+
+```{r, eval = FALSE}
+library(tidyverse)
+library(tidymodels)
+
+hotels <- read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-02-11/hotels.csv')
+```
+
+# Exploring the data
+
+I'm choosing to build a model to predict **season**, rather than *month*, because modeling a variable with four classes is simpler! Plus, I'm assuming that we'll see some of the same trends within each month of a given season; but let's check, just to be safe. 
+
+First, we'll filter out the canceled reservations, convert *month* to a factor, and create a binary variable for stays *with* or *without* children, and then we'll build a visualization showing monthly trends in stays at different *types* of hotels. 
+
+```{r, warning = FALSE}
+hotels_df <- hotels %>%
+  filter(is_canceled == 0) %>%
+  mutate(arrival_date_month = fct_relevel(arrival_date_month, levels = month.name), 
+         any_kids = ifelse(children + babies > 0, "w/ children", "w/o children")) 
+
+hotels_df %>%
+  count(arrival_date_month, hotel) %>%
+  ggplot(aes(x = arrival_date_month, y = n, fill = hotel)) + 
+  geom_col(position = "dodge") +
+  labs(x = NULL, y = "Frequency", fill = NULL) +
+  coord_flip() 
+```
+
+It doesn't look like hotel *type* is exactly homogeneous within each of the four seasons' months, assuming the typical northern hemisphere seasons. While overall there are more stays at city hotels, both city and resort hotel stays spike during July and August, probably (at least partially) related to children being out of school and the warmer weather. 
+
+Let's see how this looks when we factor in whether or not a stay includes children/babies, after converting to a proportion scale:
+
+```{r}
+hotels_df %>%
+  count(arrival_date_month, hotel, any_kids) %>%
+  group_by(hotel, any_kids) %>%
+  mutate(prop = n/sum(n)) %>%
+  ggplot(aes(x = arrival_date_month, y = prop, fill = hotel)) + 
+  geom_col(position = "dodge") +
+  facet_wrap( ~ any_kids) +
+  labs(x = NULL, y = "Percent of hotel stays", fill = NULL) +
+  scale_y_continuous(labels = scales::percent_format()) +
+  coord_flip() 
+```
+
+It looks like a significantly higher percent of stays *with children* occur during the summer months, whereas stay frequency by month is relatively stable when the kids aren't involved. Let's see how this looks when we consider *season* rather than month:
+
+```{r}
+hotels_df <- hotels_df %>%
+  mutate(season = 
+           case_when(arrival_date_month %in% c("April", "May", "June") ~ "Spring", 
+                     arrival_date_month %in% c("July", "August", "September") ~ "Summer", 
+                     arrival_date_month %in% c("October", "November", "December") ~ "Fall", 
+                     arrival_date_month %in% c("January", "February", "March") ~ "Winter")) %>%
+  mutate(season = fct_relevel(season, 
+                              levels = "Spring", "Summer", "Fall", "Winter"))
+```
+
+(Note that these aren't the *exact* ranges for the different seasons, but that's okay!)
+
+```{r}
+hotels_df %>%
+  count(season, hotel, any_kids) %>%
+  group_by(hotel, any_kids) %>%
+  mutate(prop = n/sum(n)) %>%
+  ggplot(aes(x = season, y = prop, fill = hotel)) + 
+  geom_col(position = "dodge") +
+  facet_wrap( ~ any_kids) +
+  labs(x = NULL, y = "Percent of hotel stays", fill = NULL) +
+  scale_y_continuous(labels = scales::percent_format()) 
+```
+
+It looks like we see the same overall trends! Now onto the model building...
+
+# Modeling
+
+Before we get to the model fitting, let's select a subset of the columns we're interested in, and convert any characters to factors:
+
+```{r}
+hotels_df <- hotels_df %>%
+  select(season, hotel, lead_time, stays_in_weekend_nights, stays_in_week_nights, meal, 
+         deposit_type, adr, required_car_parking_spaces, total_of_special_requests, any_kids, 
+         arrival_date_month) %>%
+  mutate_if(is.character, factor)
+```
+
+
+## Data Splitting
+
+We'll use some `rsample` functions to split the data into *training* and *testing* sets, using an 80%/20% split stratified on `season`. We'll train the model on the training set, and we'll leave the testing set to the side until we evaluate the model. 
+
+```{r}
+set.seed(228)
+hotel_split <- initial_split(hotels_df, strata = season) 
+hotel_train <- training(hotel_split)
+hotel_test <- testing(hotel_split)
+```
+
+Leaving the testing set in a dark, dusty corner until model evaluation is key to avoiding *data leakage* during the model fitting stage. For example, any additional data cleaning and preprocessing in the model fitting stage *must* be performed on the training set and the training set alone! Enter: recipes. 
+
+## Data Preprocessing with Recipes
+
+Recipes play a significant role in defining the **roles** of different variables. In fact, that's really the bare minimum amount of preprocessing we need! In statistical terminology, we might think of these variables as the *outcome* and the *explanatory* variables; in recipes, specifically the `recipe()` function, we define these variables using an R **formula**, `y ~ x1 + x2 + ...` or simply `y ~ .`. 
+
+Recipes can perform a number of other preprocessing tricks, too, some of which I'll be using in our model. 
+
+1. Define the roles of each variable from `hotels_df` in the model. We'll have an *outcome* and some *explanatory* variables, but one might also have variables that serve other "support" roles, such as `id`. We don't want to fit a model on this column, but we might want to hold onto it for later when evaluating the model. 
+
+2. We kept `arrival_date_month` in the dataset to help with checking individual predictions, but we don't want to use it as an explanatory variable the model fit. Therefore we'll update its role to an "id" variable. 
+    
+3. We'll convert any non-outcome factor variables to *indicator* variables, using `step_dummy()`. A nice thing about `step_dummy()` is that we can apply this to all nominal variables at once, but at the same time tell R to *not* apply it to our categorical *outcome*. 
+
+4. Finally, we will remove any columns from the training set that have only a single value, or *zero-variance predictors*. 
+
+```{r}
+hotel_rec <- recipe(season ~ ., data = hotel_train) %>%
+  update_role(arrival_date_month, new_role = "id") %>%
+  step_dummy(all_nominal(), -all_outcomes(), -has_role("id")) %>%
+  step_zv(all_predictors())
+
+hotel_rec
+```
+
+There are *so many* other cool tricks one could use in pre-processing the data: imputation, normalization, functions for handling dates, and many more. Recipes with `recipes` are great!
+  
+## Model Specification and Workflow
+
+One of the best features of `tidymodels` is that it sets a common language when building different types of models that use different "engines." I'm going to train a **random forest** model, but there are actually two commonly-used "engines" of random forest models in R: the `ranger` and the `randomForest` engines. Each of these fit random forests, but using slightly different naming conventions (e.g., `num.trees` vs `ntree` for the number of trees in the model). Under the `tidymodels` framework, these are just called `trees`, regardless of the engine we choose. 
+
+We'll *specify* a random forest model using the `ranger` engine. 
+
+```{r}
+rf_spec <- rand_forest() %>%
+  set_engine("ranger") %>%
+  set_mode("classification")
+```
+
+Notice that we still haven't actually *fit* the model. Before we do that, we have to combine the model specification and the recipe into a **workflow**. This will ensure that both fitting the model and testing new predictions takes into account all of the preprocessing we've done. 
+
+```{r}
+hotel_wf <- workflow() %>%
+  add_recipe(hotel_rec) %>%
+  add_model(rf_spec)
+
+hotel_wf
+```
+
+## Model Fitting and Evaluation
+
+It's time to fit the model! This is straightforward after defining the workflow. 
+
+```{r}
+hotel_rf <- hotel_wf %>%
+  fit(hotel_train)
+```
+
+Now that we have a model fit, we can dust off the **testing set** and look at some metrics that compare the true and predicted values. We can use `metrics()` from `yardstick` to generate prediction metrics for the model. 
+
+```{r}
+mod_eval <- hotel_test %>%
+  bind_cols(predict(hotel_rf, hotel_test)) %>%
+  rename(.pred_rf = .pred_class)
+
+mod_eval %>%
+  metrics(season, .pred_rf)
+```
+
+We'll do the same with the training set to check for overfitting. 
+
+```{r}
+mod_eval_train <- hotel_train %>%
+  bind_cols(predict(hotel_rf, hotel_train)) %>%
+  rename(.pred_rf = .pred_class)
+
+mod_eval_train %>%
+  metrics(season, .pred_rf)
+```
+
+So overall the accuracy appears to be *okay*, but not incredibly great. One thing I'm curious about is whether the model might be less precise in predicting seasons for hotel stays right on the *cusp* of one season. For example, is the model more likely to incorrectly classify a hotel stay in *May* or *June* as `Summer`?
+
+Let's take a look...
+
+```{r, eval = FALSE, echo = FALSE}
+mod_eval %>%
+  #filter(season == "Spring") %>%
+  count(season == .pred_rf, arrival_date_month) %>%
+  rename(correct_pred = `season == .pred_rf`) %>%
+  group_by(correct_pred) %>%
+  mutate(prop = n/sum(n)) %>%
+  ggplot(aes(x = arrival_date_month, y = prop, fill = correct_pred)) +
+  geom_col(position = "dodge") + 
+  labs(x = NULL, y = "Percent of hotel stays", fill = "Correct Prediction?") +
+  scale_y_continuous(labels = scales::percent_format()) + 
+  coord_flip()
+```
+
+```{r}
+mod_eval %>%
+  filter(season != .pred_rf) %>%
+  count(.pred_rf, arrival_date_month) %>%
+  group_by(.pred_rf) %>%
+  mutate(prop = n/sum(n)) %>%
+  ggplot(aes(x = arrival_date_month, y = prop, fill = .pred_rf)) +
+  geom_col(position = "dodge") + 
+  labs(x = NULL, y = "Percent of hotel stays", fill = "(Incorrectly) Predicted Season") +
+  scale_y_continuous(labels = scales::percent_format()) + 
+  coord_flip()
+```
+
+It looks like the model performance might dip for hotel stays right on the cusp between seasons. For example, hotels stays in the testing set *incorrectly predicted as "Summer"* are more likely to take place in June than any other month (remember, we categorized June as "Spring" in this model). I don't think this is directly related to using `Season` as a simplified version of `arrival_date_month`; I'm guessing we would see similar trends if we used `arrival_date_month` as the outcome directly. 
+
+As they say, all models are wrong!

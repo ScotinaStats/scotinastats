@@ -1,0 +1,198 @@
+---
+title: 'Defeating Tom Nook with #rstats'
+author: Anthony Scotina
+date: '2020-06-10'
+slug: defeating-tom-nook-with-rstats
+categories: []
+tags:
+  - rstats
+  - tidyverse
+  - tidytuesday
+subtitle: ''
+summary: ''
+authors: []
+lastmod: '2021-05-06T10:02:43-04:00'
+featured: no
+image:
+  caption: ''
+  focal_point: ''
+  preview_only: true
+projects: []
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+knitr::opts_chunk$set(cache = TRUE, warning = FALSE, message = FALSE, 
+                      echo = TRUE, dpi = 300, cache.lazy = FALSE,
+                      tidy = "styler", fig.width = 8, fig.height = 5)
+library(scales)
+library(tidyverse)
+library(tweetrmd)
+library(ggthemr)
+library(extrafont)
+loadfonts()
+
+ggthemr("grape", type = "outer", layout = "minimal")
+```
+
+I love Animal Crossing. 
+
+For those unfamiliar, [Animal Crossing](https://en.wikipedia.org/wiki/Animal_Crossing) is a social simulation video game franchise, where you play as a *human* living in a village inhabiting by talking animals. There is really *no point* to the game other than paying off your house loans and building up your village through crafting, fishing, bug hunting, planting, etc. There are endless possibilities and you can play at *entirely your own pace*, which is why it is so appealing and inviting to many different play styles. 
+
+While the *Animal Crossing* franchise has been around since 2001, I finally joined the hype train with *Animal Crossing: New Horizons* for the Nintendo Switch. While the overall scope of *New Horizons* is similar to other entries in the franchise, *New Horizons* places you on a deserted island where you slowly pay off your debts to **Tom Nook**, the greedy capitalist raccoon who serves as the one barrier to quickly building up your island paradise. 
+
+In a time full of uncertainty and distress, it has been nice having a little island getaway. So naturally, I was overjoyed when I heard that an Animal Crossing dataset was added to the **amazing** [TidyTuesday repository](https://github.com/rfordatascience/tidytuesday). 
+
+And I knew *right away* what question I wanted to answer with the data:
+
+```{r, echo = FALSE}
+tweet_embed("https://twitter.com/octolinghacker/status/1250245127118835712")
+```
+
+It's time to show that greedy raccoon who's boss!
+
+## Exploring the data
+
+The analysis that follows will use the [Animal Crossing data posted to the TidyTuesday GitHub repository](https://github.com/rfordatascience/tidytuesday/blob/master/data/2020/2020-05-05/readme.md), which was sourced from [VillagerDB](https://github.com/jefflomacy/villagerdb) and [Metacritic](https://www.metacritic.com/game/switch/animal-crossing-new-horizons/critic-reviews). 
+
+```{r}
+library(tidyverse)
+library(ggthemr)
+library(ggpattern)
+library(extrafont)
+
+ggthemr("grape", type = "outer", layout = "minimal")
+
+critic <- read_tsv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-05-05/critic.tsv')
+user_reviews <- read_tsv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-05-05/user_reviews.tsv')
+items <- read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-05-05/items.csv')
+villagers <- read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-05-05/villagers.csv')
+```
+
+These datasets contain a *ton* of information for any fan of *Animal Crossing*, ranging from characteristics of every item appearing in *New Horizons* to user reviews of the game (focusing on the latest edition rather than the entire franchise). 
+
+My goal is, quite simply, to *defeat Tom Nook*. But let's rephrase this into a question that makes slightly more sense in the context of the data. Because Nook operates the village store and charges *exorbitant* prices for basically everything, *how can we quickly put Nook out of business*? We might have a good shot if we *stop buying Nook's most highly-priced items*, so let's find **which items sold from Nook businesses sell for the most**. 
+
+Using the `items` dataset, let's first check the source of each item in the game^[I *love* `count()`. It's almost always the first function I use in an exploratory analysis.]:
+```{r}
+items %>%
+  count(sources, sort = TRUE)
+```
+
+There are a lot of `NA`s, which consists primarily of *craftable items* that you create yourself by gathering resources from around your island, or *villager photos* obtainable by earning a high enough friendship level with them. Many of the items come from Nook's Cranny (Tom Nook's store), while a handful of items come from other Nook businesses. 
+
+As one small data-cleaning step before we continue, I'd like to remove *duplicate items*, which mostly appear due to multiple colors of the same item:
+```{r}
+items_dup <- items %>%
+  distinct(name, .keep_all = TRUE)
+```
+
+## Defeating Tom Nook
+
+First, let's find which *item categories* Nook tends to sell for the most, on average. To do this, I'm using `stringr`'s `str_detect` to find elements of the `sources` column that contain the string `"Nook"` (rather than filtering by every Nook business one-by-one)^[I had to download the "FinkHeavy" font (as a `.tiff` file), which I then loaded via the `extrafont` package. This is the font that the *Animal Crossing* franchise widely uses.]:
+
+```{r}
+items_dup %>%
+  filter(str_detect(sources, pattern = "Nook")) %>%
+  group_by(category) %>%
+  summarize(avg_sell = mean(buy_value, na.rm = TRUE)) %>%
+  ggplot(aes(x = fct_reorder(category, avg_sell), y = avg_sell)) + 
+  geom_col(fill = "tan3", color = "gray89") + 
+  labs(x = "", y = "Average Sell Value (in bells)", 
+       title = "Which items does Nook sell for the most?", 
+       caption = "Source: TidyTuesday and VillagerDB") +
+  theme(text = element_text(size = 14, family = "FinkHeavy"), 
+        plot.caption = element_text(size = 10)) +
+  scale_y_continuous(labels = scales::comma) +
+  coord_flip()
+```
+
+I think we could survive by not purchasing *wallpaper* and *furniture* from Nook; there are plenty of craftable items - just live off the land! Also, Saharah the traveling camel will visit once a week and sell better wallpaper and flooring. Not purchasing any music would be tough, but...perhaps worth it?
+
+## (Truly) Defeating Tom Nook
+
+It isn't enough to stop purchasing items from Nook businesses. He probably has a pretty large nest egg by now; he's been overcharging since 2001! No, we can do so much more. So rather than *not* buying *Nook items*, what if we *sold items back to Nook* that **Nook himself doesn't sell in the first place**? I'm thinking (i) craft items from resources around your island, (ii) sell these to Nook, (iii) **PROFIT**, (iv) rinse and repeat. 
+
+As before, I'll use `str_detect()`, but now I'll use it to *remove* any categories that contain the string "Nook" (remember, we don't want to sell Nook his own items which he already profited from selling). Let's find which *item categories* Nook tends to buy back for the most, on average, *restricting to items that Nook doesn't sell in the first place*. 
+
+```{r}
+items_dup %>%
+  filter(!str_detect(sources, pattern = "Nook") | is.na(sources)) %>%
+  group_by(category) %>%
+  summarize(avg_buyback = mean(sell_value, na.rm = TRUE)) %>%
+  ggplot(aes(x = fct_reorder(category, avg_buyback), y = avg_buyback)) + 
+  geom_col(fill = "tan3", color = "gray89") + 
+  labs(x = "", y = "Average Sell Value (in bells)", 
+       title = "Defeating Tom Nook", 
+       subtitle = "Which non-Nook items have the highest sell value?", 
+       caption = "Source: TidyTuesday and VillagerDB") +
+  theme(text = element_text(size = 14, family = "FinkHeavy"), 
+        plot.caption = element_text(size = 10)) +
+  scale_y_continuous(labels = scales::comma) +
+  coord_flip()
+```
+
+As I mentioned previously, there isn't a major need to buy furniture from Nook; there is plenty of furniture that you can obtain through other means! Fortunately, Nook values this furniture quite highly, and will buy it back for an average of 5,479 bells (*Animal Crossing* currency). Let's take a closer look at the `Furniture` category. If most of these items are craftables, which items should I focus on the most, if I want to sell for the most bells?
+
+The top 4 *furniture items* in terms of *sell value* are given below. We had to omit the `"Robot Hero"` and `"Grand Piano"` items - these weren't flagged in the data as a Nook item, but they can actually be redeemed using Nook Miles and bought from Nook's Cranny, respectively^[A bunch of items were tied for the *fifth* spot, which was why I chose the somewhat-arbitrary-sounding "top 4".]. 
+
+```{r}
+items_top4 <- items_dup %>%
+  filter(category == "Furniture" & !(name %in% c("Robot Hero", "Grand Piano"))) %>% 
+  filter(!str_detect(sources, pattern = "Nook") | is.na(sources)) %>%
+  mutate(name = fct_reorder(name, sell_value)) %>%
+  top_n(4, wt = sell_value)
+items_top4 %>%
+  select(name, sell_value)
+```
+
+This table consists predominately of *gold* items. Gold is a relatively rare item found around your island, so crafting items with gold are expected to net a lot of bells!
+
+Let's visualize this table with a barplot. But to take things one step further, I'll use the wonderful `ggpattern` package [https://coolbutuseless.github.io/package/ggpattern/](https://coolbutuseless.github.io/package/ggpattern/) to embed image files in the bars. Conveniently enough, image links for each item are *already included in the data*. Thanks, TidyTuesday!
+
+After a bit of wrangling to get the item image to match up with the correct item (while preserving the appropriate factor order based on *descending* `sell_value`), we can see that the **golden casket** is the highest-selling item not previously sold by Nook. 
+
+```{r}
+image_urls <- items_top4 %>%
+  mutate(image_url = fct_reorder(image_url, sell_value)) %>%
+  pull(image_url)
+image_urls <- levels(image_urls)
+
+
+items_top4 %>%
+  ggplot(aes(x = name, y = sell_value)) +
+  geom_col_pattern(aes(pattern_filename = name),
+    pattern         = 'image',
+    pattern_type    = 'none',
+    fill            = 'tan3',
+    colour          = 'gray89',
+    pattern_scale   = 1,
+    pattern_filter  = 'point',
+    pattern_gravity = 'east'
+  ) + 
+  theme(legend.position = 'none') +
+  scale_pattern_filename_discrete(choices = image_urls) +
+  scale_pattern_discrete(guide = guide_legend(nrow = 1)) + 
+  labs(x = "", y = "Average Sell Value (in bells)", 
+       title = "Which non-Nook items have the highest sell value?\n(top 4 furniture items, by sell value)", 
+       caption = "Source: TidyTuesday and VillagerDB") +
+  theme(text = element_text(size = 14, family = "FinkHeavy"), 
+        plot.caption = element_text(size = 10)) +
+  scale_y_continuous(labels = scales::comma) +
+  coord_flip()
+```
+
+## Concluding Thoughts
+
+What have we learned?
+
+- You can accumulate plenty of furniture and other housewares without purchasing them from Tom Nook. 
+- Selling furniture and fish tend to net *you* the highest profit. 
+- There are *many* items that Nook does not sell which he will pay the big bells for. 
+- Save your **gold**. You can use it to craft items that sell for a lot of bells!
+
+I'll be right back - I need to start a **golden toilet** business on my *Animal Crossing* island!
+
+I'm onto you, Nook. 
+
+![](https://tenor.com/view/animal-crossing-tom-nook-back-to-work-so-its-back-to-work-for-me-monday-gif-16625879.gif)

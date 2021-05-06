@@ -1,0 +1,165 @@
+---
+title: 'Showcasing Your #rstats Skills with blogdown'
+author: Anthony Scotina
+date: '2021-03-31'
+slug: showcasing-your-rstats-skills-with-blogdown
+categories: []
+tags:
+  - blogdown
+  - rstats
+  - hugo
+subtitle: ''
+summary: ''
+authors: []
+lastmod: '2021-05-06T10:06:53-04:00'
+featured: no
+image:
+  caption: '[Photo by Andrew Neel on Unsplash](https://unsplash.com/photos/cckf4TsHAuw)'
+  focal_point: ''
+  preview_only: no
+projects: []
+---
+
+<script src="{{< blogdown/postref >}}index_files/header-attrs/header-attrs.js"></script>
+
+
+<p>I’m teaching an Introduction to Data Science course this semester, and one of the overarching themes is <em>building a data science project portfolio</em>. To facilitate this, students have four “mini-projects” in the form of blog posts, where they can explore different pieces of the <a href="https://r4ds.had.co.nz/explore-intro.html">data science pipeline</a> such as <strong>data visualization</strong>, <strong>data wrangling</strong>, <strong>modeling</strong>, and <strong>communication</strong>.</p>
+<p>The idea of blogging to communicate data science projects certainly isn’t new and has been recommended in a <a href="http://varianceexplained.org/r/start-blog/">post</a> by David Robinson, the wonderful <a href="https://www.manning.com/books/build-a-career-in-data-science">Build a Career in Data Science</a> book by Emily Robinson and Jacqueline Nolis, and many other sources! But the main “deliverables” for the mini-project assignments in my Data Science class are static HTML files generated via <strong>R Markdown</strong> - I wanted to additionally show my students how they can host data science blog posts on a website, so they can easily share on social media or with friends, pets, mentors, potential employers, etc.</p>
+<p>In this post, we’ll walk through some of the basics to getting a website up and running in RStudio. And I stress <em>basics</em> here, because I have minimal experience with web design and CSS (cascading style sheets).</p>
+<p>You might be thinking: “I knew RStudio was <em>amazing</em>, but I can make websites in RStudio, too?!” Yup. Enter <code>blogdown</code>.</p>
+<div id="getting-started-with-blogdown" class="section level1">
+<h1>Getting Started with <code>blogdown</code></h1>
+<p>First thing’s first: Install the <code>blogdown</code> package, followed by the static site generator, <a href="https://gohugo.io/">Hugo</a>.</p>
+<pre class="r"><code>install.packages(&quot;blogdown&quot;)
+blogdown::install_hugo()</code></pre>
+<ul>
+<li>We’ll get started with a template Hugo website by creating a new <strong>R project</strong> (<code>File -&gt; New Project -&gt; New Directory</code>).</li>
+<li>If you installed <code>blogdown</code> earlier, then in the window that appears after selecting <code>New Directory</code>, you should be able to scroll down and select <code>Website using blogdown</code> - select that.</li>
+<li>Next, create a <em>directory name</em> (I’ll use <code>my_website</code>), and find a place on your computer to store the directory (I’ll use my <code>Desktop</code> for now, though I’d recommend a location where it is easy to find!).</li>
+<li>Keep all boxes checked that are currently checked, and optionally check “Open in a new session” (this is a personal preference).</li>
+<li>Finally, replace the selected “Hugo theme” with: <code>kishaningithub/hugo-creative-portfolio-theme</code> - while there are <a href="https://themes.gohugo.io/">many themes</a>, including the <a href="https://themes.gohugo.io/hugo-lithium-theme/">default</a>, I think the <a href="https://themes.gohugo.io/hugo-creative-portfolio-theme/">Creative Portfolio</a> will work well with creating a <em>data science portfolio</em>.</li>
+</ul>
+<p>This is what my screen looks like:</p>
+<p><img src="website_start.png" style="width:50.0%" /></p>
+<p>Now hit <code>Create Project</code>, and you’re good to go!</p>
+</div>
+<div id="building-your-website" class="section level1">
+<h1>Building Your Website</h1>
+<p>Once your new R project opens, you’ll notice a <code>config.toml</code> file open in the RStudio source editor pane. This is the file where you can modify many of the global settings for your site. Many of these options are fairly straightforward to edit, even if you don’t know anything about TOML (and I don’t know anything about TOML 😄).</p>
+<ul>
+<li>Change the <code>title</code> option to something such as your name. This will be the thing that appears in big, bold letters at the top of your website!</li>
+<li>Add a sentence or two about yourself in the <code>sidebarAbout</code> section. For example, I added <code>"I am an Assistant Professor of Statistics at Simmons University."</code>.</li>
+<li>You don’t have to keep all of the options under the <code>[params.social]</code> section. For instance, if you don’t have an Instagram or choose not to share one on your website, you can just remove the <code>instagram = "full profile url in instagram"</code> section altogether. But for sections that you <em>do</em> want to keep, such as GitHub (for example), you can enter the URL to your GitHub profile page.</li>
+<li>We’ll keep the three <code>[[params.navlinks]]</code> options for now, but you can change the name of each page if you’d like, or change which is the “<code>home = true</code>” page.</li>
+</ul>
+<p>At this point, it might be worthwhile to <strong>preview your site</strong>, just to see what you’ve accomplished so far. To do so, run the following:</p>
+<pre class="r"><code>blogdown::serve_site()</code></pre>
+<p>Note that this does not actually <em>publish</em> your site; it just allows you to view a preview of the site locally in the RStudio “Viewer” pane. You can view your website in the web browser (again, this doesn’t <em>publish</em> your site) by clicking the icon immediately to the right of the broom in the RStudio “Viewer” pane.</p>
+<p>So far, most of what you’ll see came with the template site. And that’s okay! Because next, we’ll go over how to modify pages within your <code>blogdown</code> website.</p>
+</div>
+<div id="editing-pages" class="section level1">
+<h1>Editing Pages</h1>
+<p>You can edit different sections in your website via the <code>.md</code> files located within the <code>content</code> folder, and you can even add new sections (which you’d have to specify within your <code>config.toml</code> file that we played with earlier).</p>
+<p>For now, we’ll look at the three default sections within the “Creative Portfolio” Hugo theme: (1) About, (2) Contact, and (3) Home (Portfolio).</p>
+<p><img src="website_content.png" style="width:50.0%" /></p>
+<div id="about" class="section level2">
+<h2>About</h2>
+<p>One of the default pages that comes with the “Creative Portfolio” Hugo theme is the “About” page. This is where you can describe a little bit more about yourself and your interests, add a photo of yourself, and link to a resume (for example). To access and edit this page within RStudio, go to the “Files” pane in the bottom right (unless you reconfigured the RStudio panes) and select the following: <code>content -&gt; about -&gt; _index.md</code></p>
+<p>You can leave the <code>date</code> as is, I don’t think that matters here. You could change the <code>title</code> to something else if you want - I’ll leave it as <code>About me</code> for now. After that, type whatever you want about yourself!</p>
+<p>For example, here’s what I wrote, taken from the bio in <a href="https://scotinastats.rbind.io/">my website</a> (yes, made in <code>blogdown</code>).</p>
+<pre class="r"><code>---
+date: &quot;2016-11-05T21:05:33+05:30&quot;
+title: About me
+---
+
+Hello, and welcome to my website!
+
+I am an Assistant Professor of Statistics at Simmons University. My research interests are in causal inference with a focus on design and analysis of observational studies with multiple treatments, integrating R programming in statistics courses, and sports statistics.
+
+![This is me][1]
+
+#### Education
+
+* PhD in Biostatistics, 2018
+    * Brown University
+* MS in Statistics, 2014
+    * University of Massachusetts, Amherst
+* AB in Mathematics and Psychology, 2012
+    * College of the Holy Cross
+
+[1]: /img/cat.png</code></pre>
+<ul>
+<li><strong>Note</strong>: I dragged a photo of me (called <code>cat.png</code>) to the <code>img</code> folder, which can be found via <code>my_website -&gt; static -&gt; img</code>.
+And this is what it looks like!</li>
+</ul>
+<p><img src="website_about.png" /></p>
+</div>
+<div id="contact" class="section level2">
+<h2>Contact</h2>
+<p>You can access and edit the “Contact” page via <code>content -&gt; contact -&gt; _index.md</code>. Note that this section is called “Get in touch” on the home page, but you can change the title of this section via <code>config.toml</code>.</p>
+<p>This page is pretty straightforward, and there isn’t much you’d need to add: maybe an email address, work phone number, or anything else that you’d feel comfortable sharing that you’d want folks to use to contact you. This section automatically adds the social media widgets that you specified in <code>config.toml</code>, and it adds an email section that links directly to the email address that you entered earlier.</p>
+<p>You might find this section redundant if you kept the email widget in <code>config.toml</code>. You could remove this section altogether, just delete the following in <code>config.toml</code>:</p>
+<pre class="r"><code>[[params.navlinks]]
+  name = &quot;Get in touch&quot;
+  url = &quot;contact/&quot;</code></pre>
+</div>
+<div id="portfolio" class="section level2">
+<h2>Portfolio</h2>
+<p>This is the most significant section of your website, since this is where you can post all the cool stuff you’ve done in R and Data Science! That’s why it is also the home page by default. Access the <strong>Portfolio</strong> section via <code>content -&gt; portfolio</code> in the RStudio “Files” pane. By default, there will be eleven template <code>.md</code> files in here - you’ll want to move these somewhere else since you don’t want them to appear in <strong>your</strong> website. But I wouldn’t recommend deleting them altogether, in case you want to use one as an example template.</p>
+<p>One cool feature that we can use to add a personal touch to the portfolio is the option to add a preview image to any blog post you write, so that the viewer can see the image (along with some preview text) before they read the full article. If you have an image (such as a graph or table) associated with a recent blog post that you’d like to use, drag the image file into the <code>portfolio</code> folder at the end of this path: <code>static -&gt; img -&gt; portfolio</code>.</p>
+<p>Just to start, I dragged the Rmd file associated with a <a href="https://scotinastats.rbind.io/2020/06/10/defeating-tom-nook-with-rstats/">certain blog post of mine</a> into the <code>content -&gt; portfolio</code> folder (where all the <code>.md</code> files were originally saved). I also took a graph from this post and saved it as an image file, and then moved that image to the <code>static -&gt; img -&gt; portfolio</code> folder. <em>Finally</em>, I went into the ‘YAML’ header of the Rmd file (the content at the beginning sandwiched between the <code>---</code>) and added this line: <code>image: img/portfolio/nook_bar.png</code>.</p>
+<p>All in all, the header in the Rmd blog post file looks like this:</p>
+<pre class="r"><code>---
+title: &#39;Defeating Tom Nook with #rstats&#39;
+author: Anthony Scotina
+date: &#39;2020-06-10&#39;
+slug: defeating-tom-nook-with-rstats
+categories:
+  - rstats
+  - tidyverse
+  - tidytuesday
+tags: 
+  - rstats
+  - tidyverse
+  - tidytuesday
+header:
+  caption: &#39;&#39;
+  image: &#39;&#39;
+  preview: yes
+image: img/portfolio/nook_bar.png
+---</code></pre>
+<ul>
+<li><strong>Note</strong>: Most of those options are <em>automatically</em> populated when you create a new blog post in <code>blogdown</code> (more on that in a sec!).</li>
+</ul>
+<p>If you run <code>blogdown::serve_site()</code> again, R will first compile your Rmd file into an HTML, and then it (along with the image) should appear in your website! I repeated this with <a href="https://scotinastats.rbind.io/2021/02/28/art-stats-with-rstats/">another post I had previously written</a> (please excuse the shameless self-promotion 🙃), and this is how they appear in my new website!</p>
+<p><img src="website_post.png" style="width:50.0%" /></p>
+<p>At the time of this writing, I’m not sure if there is a way to limit the amount of text that appears in the preview. I’m guessing it automatically shows the first paragraph by default…</p>
+<div id="new-posts" class="section level3">
+<h3>New Posts</h3>
+<p>If you don’t have any blog posts yet, <code>blogdown</code> makes it <em>real simple</em> to get started! Just select <code>Addins</code> at the top of RStudio’s source editor pane, and then select <code>New Post</code>. Add a title of your post, the author (that’s you!), some tags that you might want to appear (I usually add things like ‘rstats’, ‘tidyverse’, ‘ggplot2’, etc.), and <strong>select the R Markdown format option at the bottom</strong>.</p>
+<p><img src="website_new_post1.png" style="width:50.0%" /> <img src="website_new_post2.png" style="width:50.0%" /></p>
+<p>Now you’re all set with writing your first blog post in R Markdown! And if you want to add a preview image afterwards, just drag the image file to the <code>static -&gt; img -&gt; portfolio</code> folder, and add an <code>image: ...</code> option to your YAML header (see my example above).</p>
+</div>
+</div>
+</div>
+<div id="deployment" class="section level1">
+<h1>Deployment</h1>
+<p>Now that you’ve tweaked the template website in RStudio, and assuming it looks okay when you run <code>blogdown::serve_site()</code>, you’re ready to publish it online!</p>
+<p><img src="https://media.giphy.com/media/l0MYt5jPR6QX5pnqM/giphy.gif" /></p>
+<p>In my opinion, the fastest way to deploy your website is through <strong>Netlify</strong> (<a href="https://www.netlify.com/">https://www.netlify.com/</a>), which provides a <strong>free</strong> plan to get your website up and running! You can quickly sign up for an account, or log in using your GitHub account.</p>
+<p>Once you’re logged in, click on the <code>Sites</code> tab in Netlify, and then drag the <code>public/</code> folder built when you run <code>blogdown::serve_site()</code> into the “drag and drop” space. And that’s it - your website is built! Note that it will automatically give a URL in the form of <code>random-word-12345.netlify.com</code>, but you can customize this.</p>
+<p>You can also make changes to your website in RStudio, and re-deploy to Netlify using this same procedure.</p>
+</div>
+<div id="concluding-thoughts" class="section level1">
+<h1>Concluding Thoughts</h1>
+<p>I hope this provided you with the tools you need to get your website up and running with <code>blogdown</code>! Here are some additional references, many of which I used when I was creating <a href="https://scotinastats.rbind.io/">my website</a> in <code>blogdown</code>!</p>
+<ul>
+<li><a href="https://bookdown.org/yihui/blogdown/">blogdown: Creating Websites in R Markdown</a> by Yihui Xie, Amber Thomas, and Alison Presmanes Hill</li>
+<li><a href="https://annielyu.com/2020/01/12/blogdown-website/">Fun blogdown in R to design a personal website</a> by Annie Lyu</li>
+<li><a href="https://www.dsquintana.blog/free-website-in-r-easy/">How to make your own website for free in an under an hour</a> by Dan Quintana</li>
+<li><a href="https://alison.rbind.io/post/2017-06-12-up-and-running-with-blogdown/">Up &amp; Running with blogdown</a> by Alison Presmanes Hill</li>
+<li>and many more! The <code>#rstats</code> community is <em>amazing</em>, and I am constantly learning new things from so many different folks!</li>
+</ul>
+<p>Happy blogging, everyone. Have fun! 😄</p>
+<p><img src="https://media.giphy.com/media/4EF4RfdHOnBNT1DRM1/giphy.gif" /></p>
+</div>

@@ -1,0 +1,171 @@
+---
+title: The Tale of count() von uncount()
+author: Anthony Scotina
+date: '2021-04-23'
+slug: the-tale-of-count-von-uncount
+categories: []
+tags:
+  - rstats
+  - tidyverse
+  - tidytuesday
+subtitle: ''
+summary: ''
+authors: []
+lastmod: '2021-05-06T10:07:58-04:00'
+featured: no
+image:
+  caption: ''
+  focal_point: ''
+  preview_only: no
+projects: []
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+I recently decided to take a deep dive into the `tidyverse`, to see if there were functions that I've never seen before that I *should* be using. 
+
+Through this short exercise, I found a bunch of *super* helpful functions that I should probably be using more often! Functions like, `unite()`, `coalesce()`, a bunch of [new features](https://www.tidyverse.org/blog/2020/06/dplyr-1-0-0/) from `dplyr 1.0.0`, and basically everything from `stringr` (I really need to work with strings more!). But due primarily to its relation to one of my *all time favorite* functions, one function stood out above all the rest: `tidyr::uncount()`
+
+I know, my mind is blown, too! Before we get more into what `uncount()` does, let's first motivate its use by working through an example with `dplyr::count()`. 
+
+# `dplyr::count()`
+
+The `count()` function from `{dplyr}` is one of my all-time favorite R functions, due in part to its simplicity. All you do is pass a variable to `count()` and it *counts* up the number of occurrences of unique values for that variable! Suppose one wanted to count the number of IKEA furniture items belonging to certain categories (beds, sofas, chairs, etc.). Does that sound oddly specific? It's because we can actually do this using [IKEA furniture data from TidyTuesday](https://github.com/rfordatascience/tidytuesday/blob/master/data/2020/2020-11-03/readme.md)!
+
+```{r}
+library(tidyverse)
+ikea <- read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-11-03/ikea.csv')
+```
+
+Now let's count up how many IKEA furniture items fall within each `category`:
+
+```{r}
+ikea %>%
+  count(category, sort = TRUE)
+```
+
+It looks like most IKEA furniture items are *tables & desks*, *bookcases & shelving units*, or *chairs*. With `count()`, we not only see the *counts* of each category, but also the categories themselves! Notice that I added the `sort = TRUE` option, which arranges the counts in *descending* order. 
+
+We can also pass this off to `ggplot()` and make a bar graph of the `category` counts. After some `{forcats}` magic to arrange the bars in descending order and a few other small tweaks, we have a bar graph of IKEA furniture counts:
+
+```{r}
+ikea %>%
+  count(category, sort = TRUE) %>%
+  ggplot(aes(x = fct_reorder(category, n), y = n)) + 
+  geom_col(color = "white", fill = "slateblue") + 
+  labs(x = "", y = "Count", 
+       title = "Which types of IKEA furniture are most common?", 
+       caption = "Source: TidyTuesday via Kaggle and IKEA") +
+  coord_flip() + 
+  theme_minimal(base_size = 12)
+```
+
+Another neat trick you can do within `count()` is add the `wt` argument, for which R will compute `sum(wt)` for each group. Let's use this to compute the total price of all IEKA furniture items per `category`:
+
+```{r}
+ikea %>%
+  count(category, sort = TRUE, wt = price) %>%
+  ggplot(aes(x = fct_reorder(category, n), y = n)) + 
+  geom_col(color = "white", fill = "slateblue") + 
+  labs(x = "", y = "Total price (measured in Saudi Riyals)", 
+       title = "Total price of IKEA furniture items",
+       subtitle = "(per category)", 
+       caption = "Source: TidyTuesday via Kaggle and IKEA") +
+  scale_y_continuous(labels = scales::comma) +
+  coord_flip() + 
+  theme_minimal(base_size = 12)
+```
+
+So, if you wanted to buy *every* IKEA furniture item in *one* category (for some reason), the priciest would be *sofas & armchairs*, with a total cost of 857,719 Saudi Riyals (or 228,688.78 U.S. dollars). 
+
+We can also use `count()` on multiple variables, so that it gives frequencies for different combinations of variables. For example, let's see how many items within each IKEA furniture category are *available in other colors*:
+
+```{r}
+ikea %>%
+  count(category, other_colors) %>%
+  ggplot(aes(x = category, y = n, fill = other_colors)) + 
+  geom_col(color = "white", position = "fill") + 
+  labs(x = "", y = "Proportion", 
+       fill = "Other colors available?",
+       title = "IKEA furniture items",
+       caption = "Source: TidyTuesday via Kaggle and IKEA") +
+  scale_y_continuous(labels = scales::comma) +
+  coord_flip() + 
+  theme_minimal(base_size = 12)
+```
+
+# `tidyr::uncount()`
+
+Alright, I've buried this for long enough. Time to get to the real reason I set out to write this! Remember how `count()` takes a variable and *counts* up the number of cases belonging to each group within the variable? 
+
+```{r}
+ikea_counts <- ikea %>%
+  count(category, other_colors) 
+
+ikea_counts
+```
+
+The `uncount()` function does the *opposite*: It takes a **counted** frequency table and transforms it back to **raw** data, essentially doing the opposite of `count()`. 
+
+I know. It blew my mind too when I found this. 
+
+![](https://media.giphy.com/media/3o8dFn5CXJlCV9ZEsg/giphy.gif)
+
+Now let's see it in action, using the `ikea_counts` table that I saved in the previous section. *Pretend* that this table is all we had: the `category`, whether or not furniture items within that category were `other_colors`, and the frequency of each combination.
+
+> But what if we wanted the raw data back, where *single* rows corresponded to *single* observations?!
+
+```{r}
+ikea_raw <- ikea_counts %>%
+  uncount(weights = n)
+
+ikea_raw
+```
+
+**BOOM**. 
+
+![](https://media.giphy.com/media/2sddCIZRYfiPlNeLZn/giphy.gif)
+
+That's all we need to do! The `uncount()` function from `tidyr` takes as input a *counted* dataset and *uncounts* it based on a specified `weights` column (which in this case, is just the column that gives the aggregate frequencies). Better yet, we can create that bar graph from earlier without transforming the raw data:
+
+```{r}
+ikea_raw %>%
+  ggplot(aes(x = category, fill = other_colors)) + 
+  geom_bar(color = "white", position = "fill") + 
+  labs(x = "", y = "Proportion", 
+       fill = "Other colors available?",
+       title = "IKEA furniture items",
+       caption = "Source: TidyTuesday via Kaggle and IKEA") +
+  scale_y_continuous(labels = scales::comma) +
+  coord_flip() + 
+  theme_minimal(base_size = 12)
+```
+
+*By the way*, I would've done something like this with the counted data before I found out about `uncount()`. **Shield your eyes!** 😨😱
+
+```{r, eval = FALSE}
+ikea_raw = data.frame(
+  category = c(rep("Bar furniture", 42+5), rep("Beds", 115+93), ...,
+               rep("TV & media furniture", 81+109), rep("Wardrobes", 193+43)), 
+  other_colors = c(rep("No", 42), rep("Yes", 5), 
+                   rep("No", 115), rep("Yes", 93), ..., 
+                   rep("No", 81), rep("Yes", 109), 
+                   rep("No", 193), rep("Yes", 43))
+)
+```
+
+Needless to say, I'm glad `uncount()` exists. 
+
+To recap:
+
+- We started with 3,694 rows in the original `ikea` dataset. 
+
+- We used `count()` to generate frequency tables on a few different variables, and one table based on `sum(price)` rather than frequency. 
+
+- After eventually settling on a frequency table that counted combinations of *two* variables, we applied `uncount()` to return to a dataset with 3,694 rows!
+
+Now we can use the raw data to play around again with `count()`! And rinse and repeat...
+
+

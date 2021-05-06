@@ -1,0 +1,603 @@
+---
+title: The One with the Pie Charts
+author: Anthony Scotina
+date: '2020-11-25'
+slug: the-one-with-the-pie-charts
+categories: []
+tags:
+  - rstats
+  - tidytuesday
+  - dataviz
+subtitle: ''
+summary: ''
+authors: []
+lastmod: '2021-05-06T10:05:12-04:00'
+featured: no
+image:
+  caption: ''
+  focal_point: ''
+  preview_only: true
+projects: []
+---
+
+<script src="{{< blogdown/postref >}}index_files/header-attrs/header-attrs.js"></script>
+
+
+<p>Pie charts are <strong>bad</strong>.</p>
+<p>Pie charts are only good at describing proportions out of a whole, they are <a href="https://www.businessinsider.com/pie-charts-are-the-worst-2013-6">the Aquaman of data visualization</a>, and they are often made even worse with 3D elements and too many colors that blend together.</p>
+<p>In fact, research dating back to the 1980s shows that humans have a much stronger ability to perceive differences in <em>position</em> than they do in <em>angles</em> and <em>area</em> (<a href="http://euclid.psych.yorku.ca/www/psy6135/papers/ClevelandMcGill1984.pdf">Cleveland and McGill, 1984</a>), and pie charts are basically <em>all</em> about angles and area!</p>
+<p>I go on this rant in my Statistics classes all the time <a href="#fn1" class="footnote-ref" id="fnref1"><sup>1</sup></a>; to my students none of the above is new and is almost as commonplace in one of my classes as a separate rant about the general <em>awesomeness</em> of R. But one thing that always trips me is when I get trolled into showing my students how to create pie charts in R. I always forget how to make them in R, because I <em>never</em> make them in R! That’s what this post is about. I’m going to describe/teach myself one way to make pie charts in R via <code>{ggplot2}</code>, and then we’ll forget this ever happened and go back to using bar graphs for everything.</p>
+<div id="pie-charts" class="section level1">
+<h1>Pie Charts</h1>
+<p>We’ll be using transcript data from the <code>{friends}</code> package, which is also <a href="https://github.com/rfordatascience/tidytuesday/blob/master/data/2020/2020-09-08/readme.md">available via TidyTuesday</a>. Our goal is to see which of the <strong>five main characters</strong> has <em>the most lines</em>, both overall and per season.</p>
+<pre class="r"><code>library(tidyverse)
+library(gt)
+
+friends &lt;- readr::read_csv(&#39;https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-09-08/friends.csv&#39;)
+
+friends_main &lt;- friends %&gt;%
+  filter(speaker %in% c(&quot;Monica Geller&quot;, &quot;Ross Geller&quot;, &quot;Joey Tribbiani&quot;, &quot;Phoebe Buffay&quot;, &quot;Rachel Green&quot;, &quot;Chandler Bing&quot;))</code></pre>
+<p>As an initial exploratory step, one of my favorite functions to use is <code>count()</code>. Because each row in the data represents a unique line in the show, we’ll count the number of lines per character overall, with some additional table styling from the <code>{gt}</code> package.</p>
+<pre class="r"><code>friends_main %&gt;%
+  count(speaker) %&gt;%
+  gt() %&gt;%
+  tab_header(
+    title = gt::html(&quot;&lt;span style=&#39;color:#AC372B&#39;&gt;Friends: Most Lines per Character&lt;/span&gt;&quot;)
+  )  %&gt;%
+  data_color(
+    columns = vars(speaker, n),
+    colors = c(&quot;white&quot;)
+  )</code></pre>
+<style>html {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', 'Fira Sans', 'Droid Sans', Arial, sans-serif;
+}
+
+#fusqfmomwo .gt_table {
+  display: table;
+  border-collapse: collapse;
+  margin-left: auto;
+  margin-right: auto;
+  color: #333333;
+  font-size: 16px;
+  font-weight: normal;
+  font-style: normal;
+  background-color: #FFFFFF;
+  width: auto;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #A8A8A8;
+  border-right-style: none;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #A8A8A8;
+  border-left-style: none;
+  border-left-width: 2px;
+  border-left-color: #D3D3D3;
+}
+
+#fusqfmomwo .gt_heading {
+  background-color: #FFFFFF;
+  text-align: center;
+  border-bottom-color: #FFFFFF;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+}
+
+#fusqfmomwo .gt_title {
+  color: #333333;
+  font-size: 125%;
+  font-weight: initial;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  border-bottom-color: #FFFFFF;
+  border-bottom-width: 0;
+}
+
+#fusqfmomwo .gt_subtitle {
+  color: #333333;
+  font-size: 85%;
+  font-weight: initial;
+  padding-top: 0;
+  padding-bottom: 4px;
+  border-top-color: #FFFFFF;
+  border-top-width: 0;
+}
+
+#fusqfmomwo .gt_bottom_border {
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+}
+
+#fusqfmomwo .gt_col_headings {
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+}
+
+#fusqfmomwo .gt_col_heading {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: normal;
+  text-transform: inherit;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+  vertical-align: bottom;
+  padding-top: 5px;
+  padding-bottom: 6px;
+  padding-left: 5px;
+  padding-right: 5px;
+  overflow-x: hidden;
+}
+
+#fusqfmomwo .gt_column_spanner_outer {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: normal;
+  text-transform: inherit;
+  padding-top: 0;
+  padding-bottom: 0;
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
+#fusqfmomwo .gt_column_spanner_outer:first-child {
+  padding-left: 0;
+}
+
+#fusqfmomwo .gt_column_spanner_outer:last-child {
+  padding-right: 0;
+}
+
+#fusqfmomwo .gt_column_spanner {
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  vertical-align: bottom;
+  padding-top: 5px;
+  padding-bottom: 6px;
+  overflow-x: hidden;
+  display: inline-block;
+  width: 100%;
+}
+
+#fusqfmomwo .gt_group_heading {
+  padding: 8px;
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  text-transform: inherit;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+  vertical-align: middle;
+}
+
+#fusqfmomwo .gt_empty_group_heading {
+  padding: 0.5px;
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  vertical-align: middle;
+}
+
+#fusqfmomwo .gt_from_md > :first-child {
+  margin-top: 0;
+}
+
+#fusqfmomwo .gt_from_md > :last-child {
+  margin-bottom: 0;
+}
+
+#fusqfmomwo .gt_row {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  margin: 10px;
+  border-top-style: solid;
+  border-top-width: 1px;
+  border-top-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+  vertical-align: middle;
+  overflow-x: hidden;
+}
+
+#fusqfmomwo .gt_stub {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  text-transform: inherit;
+  border-right-style: solid;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+  padding-left: 12px;
+}
+
+#fusqfmomwo .gt_summary_row {
+  color: #333333;
+  background-color: #FFFFFF;
+  text-transform: inherit;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#fusqfmomwo .gt_first_summary_row {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+}
+
+#fusqfmomwo .gt_grand_summary_row {
+  color: #333333;
+  background-color: #FFFFFF;
+  text-transform: inherit;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#fusqfmomwo .gt_first_grand_summary_row {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-top-style: double;
+  border-top-width: 6px;
+  border-top-color: #D3D3D3;
+}
+
+#fusqfmomwo .gt_striped {
+  background-color: rgba(128, 128, 128, 0.05);
+}
+
+#fusqfmomwo .gt_table_body {
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+}
+
+#fusqfmomwo .gt_footnotes {
+  color: #333333;
+  background-color: #FFFFFF;
+  border-bottom-style: none;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 2px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+}
+
+#fusqfmomwo .gt_footnote {
+  margin: 0px;
+  font-size: 90%;
+  padding: 4px;
+}
+
+#fusqfmomwo .gt_sourcenotes {
+  color: #333333;
+  background-color: #FFFFFF;
+  border-bottom-style: none;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 2px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+}
+
+#fusqfmomwo .gt_sourcenote {
+  font-size: 90%;
+  padding: 4px;
+}
+
+#fusqfmomwo .gt_left {
+  text-align: left;
+}
+
+#fusqfmomwo .gt_center {
+  text-align: center;
+}
+
+#fusqfmomwo .gt_right {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+#fusqfmomwo .gt_font_normal {
+  font-weight: normal;
+}
+
+#fusqfmomwo .gt_font_bold {
+  font-weight: bold;
+}
+
+#fusqfmomwo .gt_font_italic {
+  font-style: italic;
+}
+
+#fusqfmomwo .gt_super {
+  font-size: 65%;
+}
+
+#fusqfmomwo .gt_footnote_marks {
+  font-style: italic;
+  font-size: 65%;
+}
+</style>
+<div id="fusqfmomwo" style="overflow-x:auto;overflow-y:auto;width:auto;height:auto;"><table class="gt_table">
+  <thead class="gt_header">
+    <tr>
+      <th colspan="2" class="gt_heading gt_title gt_font_normal" style><span style='color:#AC372B'>Friends: Most Lines per Character</span></th>
+    </tr>
+    <tr>
+      <th colspan="2" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border" style></th>
+    </tr>
+  </thead>
+  <thead class="gt_col_headings">
+    <tr>
+      <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1">speaker</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_center" rowspan="1" colspan="1">n</th>
+    </tr>
+  </thead>
+  <tbody class="gt_table_body">
+    <tr>
+      <td class="gt_row gt_left" style="background-color: #FFFFFF; color: #000000;">Chandler Bing</td>
+      <td class="gt_row gt_center" style="background-color: #FFFFFF; color: #000000;">8465</td>
+    </tr>
+    <tr>
+      <td class="gt_row gt_left" style="background-color: #FFFFFF; color: #000000;">Joey Tribbiani</td>
+      <td class="gt_row gt_center" style="background-color: #FFFFFF; color: #000000;">8171</td>
+    </tr>
+    <tr>
+      <td class="gt_row gt_left" style="background-color: #FFFFFF; color: #000000;">Monica Geller</td>
+      <td class="gt_row gt_center" style="background-color: #FFFFFF; color: #000000;">8441</td>
+    </tr>
+    <tr>
+      <td class="gt_row gt_left" style="background-color: #FFFFFF; color: #000000;">Phoebe Buffay</td>
+      <td class="gt_row gt_center" style="background-color: #FFFFFF; color: #000000;">7501</td>
+    </tr>
+    <tr>
+      <td class="gt_row gt_left" style="background-color: #FFFFFF; color: #000000;">Rachel Green</td>
+      <td class="gt_row gt_center" style="background-color: #FFFFFF; color: #000000;">9312</td>
+    </tr>
+    <tr>
+      <td class="gt_row gt_left" style="background-color: #FFFFFF; color: #000000;">Ross Geller</td>
+      <td class="gt_row gt_center" style="background-color: #FFFFFF; color: #000000;">9157</td>
+    </tr>
+  </tbody>
+  
+  
+</table></div>
+<p>Not surprisingly, each of the five main characters speaks a lot throughout the series, with Rachel and Ross in the lead. Now let’s visualize these data with… a pie chart… 😨😱</p>
+<pre class="r"><code>friends_palette &lt;- c(&quot;#CFB789&quot;, &quot;#AC372B&quot;, &quot;#F0BE5F&quot;, &quot;#7E7E9D&quot;, &quot;#6F7959&quot;, &quot;#916C47&quot;)
+
+friends_main %&gt;%
+  group_by(speaker) %&gt;%
+  summarize(n_lines = n()) %&gt;%
+  mutate(prop_lines = (n_lines/sum(n_lines))*100) %&gt;%
+  ggplot(aes(x = &quot;&quot;, y = prop_lines, fill = speaker)) +
+  geom_bar(stat = &quot;identity&quot;, color = &quot;white&quot;) + 
+  coord_polar(theta = &quot;y&quot;, start = 0) + 
+  geom_text(aes(label = paste0(round(prop_lines, 1), &quot;%&quot;)), color = &quot;white&quot;, 
+            position = position_stack(vjust = 0.5), fontface = &quot;bold&quot;) +
+  scale_fill_manual(values = friends_palette) +
+  labs(fill = &quot;&quot;, title = &quot;Friends&quot;, subtitle = &quot;Who has the most lines?&quot;) +
+  theme_void()</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-3-1.png" width="672" /></p>
+<p>Before we get to the plot itself, a few notes:</p>
+<ul>
+<li>I added a custom color palette based on the <em>Friends</em> color theme.</li>
+<li>I used a <code>group_by() %&gt;% summarize() %&gt;% mutate()</code> statement to get the proportion of lines for each character out of the total. This wouldn’t be necessary if we were visualizing the <em>number</em> of lines per character.</li>
+<li>One of my favorite things about <code>{ggplot2}</code> is that it makes you work <em>really hard</em> to make a pie chart! There isn’t a simple <code>geom_pie()</code> that just gives you a pie chart (unless I’m missing something). You have to make a bar graph first, and <em>then</em> convert it to polar coordinates, and <em>then</em> add in text indicating the percentage for each region.</li>
+</ul>
+<p>Now to the pie chart… It’s fine, I guess. It’s pretty clear that the lines per main character are relatively evenly-dispersed throughout the series. And if the main goal of the pie chart is to show that, then I begrudgingly guess it works. BUT they are <em>not</em> easy to make in R, and there are better options (more on this in a few).</p>
+<p>Let’s say we asked a more interesting question: What are the trends in lines per main character <em>per season</em>? In this case we need to visualize <em>two</em> variables: speaker and season, along with some metric that summarizes lines per speaker/season combination. Pie charts are <strong>awful</strong> with this:</p>
+<pre class="r"><code>friends_main %&gt;%
+  group_by(season, speaker) %&gt;%
+  summarize(n_lines = n()) %&gt;%
+  mutate(prop_lines = (n_lines/sum(n_lines))*100) %&gt;%
+  ggplot(aes(x = &quot;&quot;, y = prop_lines, fill = speaker)) +
+  geom_bar(stat = &quot;identity&quot;, color = &quot;white&quot;) + 
+  coord_polar(theta = &quot;y&quot;, start = 0) + 
+  geom_text(aes(label = paste0(round(prop_lines, 1), &quot;%&quot;)), color = &quot;white&quot;, 
+            position = position_stack(vjust = 0.5), fontface = &quot;bold&quot;, size = 2.5) +
+  scale_fill_manual(values = friends_palette) +
+  facet_wrap( ~ season, nrow = 3) +
+  labs(fill = &quot;&quot;, title = &quot;Friends&quot;, subtitle = &quot;Who has the most lines per season?&quot;) +
+  theme_void()</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-4-1.png" width="672" /></p>
+<p><img src="https://media.giphy.com/media/1ykhXVZskuM6cpBMlG/giphy.gif" /></p>
+<p>There is just <em>so much</em> going on! And all of the issues with pie charts in general (angles, area, Aquaman) are compounded by the additional variable added to the mix. The difference in code between the single pie chart and multiples isn’t large; I added a <code>facet_wrap()</code> and grouped by <code>season</code> and <code>speaker</code>. But it’s challenging to spot any trends in character lines across different seasons.</p>
+<div id="side-note-donut-charts" class="section level2">
+<h2>Side note: Donut Charts</h2>
+<p>Before we get to bar graphs (which are <strong>good</strong>), it is worth mentioning <em>donut charts</em>. They are a <em>slight improvement</em> over pie charts. With pie charts, our eyes are naturally pulled directly to the center, and because the center is filled in, we distinguish different slices based on both <em>angle</em> and <em>area</em>.</p>
+<p>Here’s a donut chart:</p>
+<pre class="r"><code>friends_main %&gt;%
+  group_by(speaker) %&gt;%
+  summarize(n_lines = n()) %&gt;%
+  mutate(prop_lines = (n_lines/sum(n_lines))*100) %&gt;%
+  ggplot(aes(x = 2, y = prop_lines, fill = speaker)) +
+  geom_bar(stat = &quot;identity&quot;, color = &quot;white&quot;) + 
+  coord_polar(theta = &quot;y&quot;, start = 0) + 
+  geom_text(aes(label = paste0(round(prop_lines, 1), &quot;%&quot;)), color = &quot;white&quot;, 
+            position = position_stack(vjust = 0.5), fontface = &quot;bold&quot;) +
+  scale_fill_manual(values = friends_palette) +
+  labs(fill = &quot;&quot;) +
+  theme_void() + 
+  xlim(0.5, 2.5)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-5-1.png" width="672" /></p>
+<p>The center is hollowed out (from using <code>xlim(0.5, 2.5)</code>), which allows us to focus more on the <em>length</em> of each slice (and <em>area</em>, still). And we are <em>very good</em> at judging differences in linear distances! So if you <em>must</em> choose a rounded graph, go with the <strong>donut chart</strong> over the <strong>pie chart</strong> - the viewer will be able to focus much more on the <em>length</em> of each slice, and there isn’t the added distraction of unnecessary space in the center.</p>
+</div>
+</div>
+<div id="bar-graphs-ftw" class="section level1">
+<h1>Bar Graphs FTW!</h1>
+<p>To make a slight correction to the previous sentence: If you <em>must</em> choose a rounded graph… <strong>don’t</strong>, and use a <strong>bar graph</strong> instead. With these, we can focus <em>entirely</em> on the size/height of each bar. Plus, they are much easier to make in R:</p>
+<pre class="r"><code>friends_main %&gt;%
+  count(speaker) %&gt;%
+  ggplot(aes(x = fct_reorder(speaker, n), y = n, fill = speaker)) +
+  geom_col(color = &quot;white&quot;, show.legend = FALSE) +
+  scale_fill_manual(values = friends_palette) +
+  labs(x = &quot;&quot;, y = &quot;Number of Total Lines&quot;) +
+  coord_flip() +
+  theme_classic() </code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-6-1.png" width="672" /></p>
+<p>I used <code>geom_col()</code> here because I find it the more flexible bar graph option in <code>{ggplot2}</code>, but <code>geom_bar()</code> also works well. Otherwise, the only additional thing I chose to do was reorder the levels of <code>speaker</code> so that the bars were in descending order. Nevertheless, it is <em>clear</em> here that Rachel and Ross have the most total lines in <em>Friends</em>, something we would have a lot of trouble determining from the pie charts if I didn’t overlay the percentages within each slice. With the slices in the pie charts, we aren’t judging differences in length; with the bar graphs, we are!</p>
+<p>Here’s how we could use <strong>stacked</strong> bar graphs to visualize the relationship between main character lines and season. All I did was add <code>season</code> to <code>count()</code> (because here we’re counting speaker lines <em>per season</em> rather than <em>overall</em>), and swapped around the <code>x</code> and <code>y</code> aesthetics:</p>
+<pre class="r"><code>friends_main %&gt;%
+  count(season, speaker) %&gt;%
+  ggplot(aes(x = factor(season), y = n, fill = speaker)) +
+  geom_col(color = &quot;white&quot;, position = &quot;fill&quot;) +
+  scale_fill_manual(values = friends_palette) +
+  labs(x = &quot;Season&quot;, y = &quot;Proportion of lines per season&quot;, fill = &quot;&quot;) +
+  coord_flip() +
+  theme_classic() </code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-7-1.png" width="672" /></p>
+<p>To be clear, there is still quite a bit going on in this graphic, though I think it is much easier to digest and comprehend than the multiple pie charts from earlier.</p>
+<div id="bonus-better-bar-graphs" class="section level2">
+<h2>Bonus: Better Bar Graphs</h2>
+<p>Here are a couple ways that we can make these bar graphs look even nicer (special thanks to Thomas Mock for his <a href="https://themockup.blog/posts/2020-08-05-a-bar-chart-5-ways/">blog post</a> on bar graphs!).</p>
+<div id="direct-labels" class="section level3">
+<h3>Direct Labels</h3>
+<pre class="r"><code>friends_main %&gt;%
+  count(speaker) %&gt;%
+  mutate(line_text = c(&quot;8,465&quot;, &quot;8,171&quot;, &quot;8,441&quot;, &quot;7,501&quot;, &quot;9,312 total lines&quot;, &quot;9,157&quot;)) %&gt;%
+  ggplot(aes(x = fct_reorder(speaker, n), y = n, fill = speaker)) +
+  geom_col(color = &quot;white&quot;, show.legend = FALSE, width = 0.7) + 
+  geom_text(aes(x = fct_reorder(speaker, n), y = n, label = line_text), 
+            color = &quot;white&quot;, hjust = 1.1, fontface = &quot;bold&quot;, position = position_nudge(x = -.020)) +
+  scale_fill_manual(values = friends_palette) +
+  labs(x = &quot;&quot;, y = &quot;&quot;) +
+  coord_flip() +
+  theme_minimal() + 
+  theme(text = element_text(face = &quot;bold&quot;), 
+        axis.text.x = element_blank(),
+        axis.ticks = element_blank(),
+        panel.grid = element_blank()) + 
+  scale_y_continuous(expand = c(0, 0),
+                       breaks = scales::breaks_pretty(n = 5))</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-8-1.png" width="672" /></p>
+</div>
+<div id="lollipop-chart-with-friends-font" class="section level3">
+<h3>Lollipop Chart (with Friends font)</h3>
+<pre class="r"><code>library(extrafont)
+# Had to download Gabriel Weiss&#39; Friends Font
+
+friends_main %&gt;%
+  count(speaker) %&gt;%
+  mutate(line_text = c(&quot;8,465&quot;, &quot;8,171&quot;, &quot;8,441&quot;, &quot;7,501&quot;, &quot;9,312&quot;, &quot;9,157&quot;)) %&gt;%
+  ggplot(aes(x = fct_reorder(speaker, n), y = n, fill = speaker)) +
+  geom_col(color = &quot;white&quot;, show.legend = FALSE, width = 0.5, alpha = 0.8) + 
+  geom_point(shape = 21, fill = &quot;gray&quot;, color = &quot;black&quot;, size = 20, stroke = 1) +
+  geom_text(aes(x = fct_reorder(speaker, n), y = n, label = line_text), 
+            color = &quot;black&quot;, hjust = 0.5, fontface = &quot;bold&quot;) +
+  scale_fill_manual(values = friends_palette) +
+  labs(x = &quot;&quot;, y = &quot;&quot;, title = &quot;Friends&quot;, subtitle = &quot;Number of lines per character&quot;) +
+  coord_flip() +
+  theme_minimal() + 
+  theme(text = element_text(face = &quot;bold&quot;, family = &quot;Gabriel Weiss&#39; Friends Font&quot;), 
+        axis.text.x = element_blank(),
+        axis.ticks = element_blank(),
+        panel.grid = element_blank()) + 
+  scale_y_continuous(limits = c(0,10000), expand = c(0, 0),
+                     breaks = scales::breaks_pretty(n = 5))</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-9-1.png" width="672" /></p>
+</div>
+</div>
+</div>
+<div id="word-clouds" class="section level1">
+<h1>Word Clouds</h1>
+<p>Because we’re analyzing text data, I’d be remiss if I didn’t include a word cloud…</p>
+<pre class="r"><code>library(tidytext)
+library(ggwordcloud)
+
+friends_tidytext &lt;- friends_main %&gt;%
+  unnest_tokens(output = word, input = text, token = &quot;words&quot;) %&gt;%
+  anti_join(stop_words) %&gt;%
+  group_by(speaker) %&gt;%
+  add_count(word) %&gt;% 
+  distinct(word, .keep_all = TRUE) %&gt;% 
+  arrange(desc(n)) %&gt;%
+  slice(1:10) %&gt;%
+  ungroup()
+
+friends_tidytext %&gt;%
+  ggplot(aes(label = word, size = n, color = speaker)) + 
+  geom_text_wordcloud(family = &quot;Gabriel Weiss&#39; Friends Font&quot;, seed = 12, eccentricity = 1, show.legend = TRUE) + 
+  scale_color_manual(values = friends_palette) + 
+  scale_size_area(max_size = 10) + 
+  labs(color = &quot;&quot;, size = &quot;&quot;) +
+  theme(text = element_text(size = 14, family = &quot;Gabriel Weiss&#39; Friends Font&quot;)) + 
+  theme_void()</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-10-1.png" width="672" /></p>
+</div>
+<div id="concluding-thoughts" class="section level1">
+<h1>Concluding Thoughts</h1>
+<p>That’s enough about pie charts for one day! Let’s never speak of this again.</p>
+<p><img src="https://media.giphy.com/media/U3y3uwDUHWYFovkyy3/giphy.gif" /></p>
+</div>
+<div class="footnotes">
+<hr />
+<ol>
+<li id="fn1"><p>Although, I call pie charts the <em>Ben Affleck version of Batman of data visualization</em>.<a href="#fnref1" class="footnote-back">↩︎</a></p></li>
+</ol>
+</div>

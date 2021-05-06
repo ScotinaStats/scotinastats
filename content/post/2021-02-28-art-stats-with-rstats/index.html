@@ -1,0 +1,923 @@
+---
+title: 'Art Stats with #rstats'
+author: Anthony Scotina
+date: '2021-02-28'
+slug: art-stats-with-rstats
+categories: []
+tags:
+  - rstats
+  - tidytuesday
+  - dataviz
+subtitle: ''
+summary: ''
+authors: []
+lastmod: '2021-05-06T10:05:59-04:00'
+featured: no
+image:
+  caption: ''
+  focal_point: ''
+  preview_only: true
+projects: []
+---
+
+<script src="{{< blogdown/postref >}}index_files/header-attrs/header-attrs.js"></script>
+
+
+<p>I’m no artist, but let’s try to paint a picture!</p>
+<p>In this post, we’ll look at art collection data from the <a href="https://github.com/tategallery/collection">Tate Art Museum</a> in Britain, compiled via <a href="https://github.com/rfordatascience/tidytuesday/blob/master/data/2021/2021-01-12/readme.md">TidyTuesday</a>. Because I have absolutely <em>no experience</em> in the art world, I had a couple of somewhat simple questions:</p>
+<ul>
+<li>What are the trends in artwork acquisitions by Tate over time?</li>
+<li>Which artists are most-represented, and do they share a common style?</li>
+</ul>
+<pre class="r"><code>library(tidyverse)
+library(gt)
+artwork &lt;- readr::read_csv(&#39;https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2021/2021-01-12/artwork.csv&#39;)</code></pre>
+<div id="the-curious-case-of-1856" class="section level1">
+<h1>The Curious Case of 1856</h1>
+<p>As a first step (and usually a second, third, and fourth step!), I like to use <code>dplyr</code>’s <code>count()</code> function to quickly view the most frequent levels of some variable(s) of interest. Here, I’ll apply <code>count()</code> to the <code>acquisitionYear</code> variable to view the ten years in which <em>Tate</em> acquired the most artwork (with some <code>gt</code> stuff added in as a bonus):</p>
+<pre class="r"><code>artwork %&gt;%
+  count(acquisitionYear, sort = TRUE) %&gt;%
+  slice(1:10) %&gt;%
+  gt() %&gt;%
+  tab_header(
+    title = gt::html(&quot;&lt;span style=&#39;color:#000000&#39;&gt;Tate Britain: Most Art Acqusitions (since 1823)&lt;/span&gt;&quot;)
+  )  %&gt;%
+  data_color(
+    columns = vars(n),
+    colors = scales::col_numeric(
+      palette = c(&quot;white&quot;, &quot;#C9000C&quot;), 
+      domain = NULL)
+  ) %&gt;%
+  data_color(
+    columns = vars(acquisitionYear),
+    colors = c(&quot;white&quot;)
+  ) %&gt;%
+  cols_label(
+    acquisitionYear = &quot;Year&quot;, 
+    n = &quot;Number&quot;
+  ) %&gt;%
+  tab_source_note(
+    source_note = md(&quot;Top 10 years included&quot;)
+  )</code></pre>
+<style>html {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', 'Fira Sans', 'Droid Sans', Arial, sans-serif;
+}
+
+#yytrxqjsnw .gt_table {
+  display: table;
+  border-collapse: collapse;
+  margin-left: auto;
+  margin-right: auto;
+  color: #333333;
+  font-size: 16px;
+  font-weight: normal;
+  font-style: normal;
+  background-color: #FFFFFF;
+  width: auto;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #A8A8A8;
+  border-right-style: none;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #A8A8A8;
+  border-left-style: none;
+  border-left-width: 2px;
+  border-left-color: #D3D3D3;
+}
+
+#yytrxqjsnw .gt_heading {
+  background-color: #FFFFFF;
+  text-align: center;
+  border-bottom-color: #FFFFFF;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+}
+
+#yytrxqjsnw .gt_title {
+  color: #333333;
+  font-size: 125%;
+  font-weight: initial;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  border-bottom-color: #FFFFFF;
+  border-bottom-width: 0;
+}
+
+#yytrxqjsnw .gt_subtitle {
+  color: #333333;
+  font-size: 85%;
+  font-weight: initial;
+  padding-top: 0;
+  padding-bottom: 4px;
+  border-top-color: #FFFFFF;
+  border-top-width: 0;
+}
+
+#yytrxqjsnw .gt_bottom_border {
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+}
+
+#yytrxqjsnw .gt_col_headings {
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+}
+
+#yytrxqjsnw .gt_col_heading {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: normal;
+  text-transform: inherit;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+  vertical-align: bottom;
+  padding-top: 5px;
+  padding-bottom: 6px;
+  padding-left: 5px;
+  padding-right: 5px;
+  overflow-x: hidden;
+}
+
+#yytrxqjsnw .gt_column_spanner_outer {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: normal;
+  text-transform: inherit;
+  padding-top: 0;
+  padding-bottom: 0;
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
+#yytrxqjsnw .gt_column_spanner_outer:first-child {
+  padding-left: 0;
+}
+
+#yytrxqjsnw .gt_column_spanner_outer:last-child {
+  padding-right: 0;
+}
+
+#yytrxqjsnw .gt_column_spanner {
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  vertical-align: bottom;
+  padding-top: 5px;
+  padding-bottom: 6px;
+  overflow-x: hidden;
+  display: inline-block;
+  width: 100%;
+}
+
+#yytrxqjsnw .gt_group_heading {
+  padding: 8px;
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  text-transform: inherit;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+  vertical-align: middle;
+}
+
+#yytrxqjsnw .gt_empty_group_heading {
+  padding: 0.5px;
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  vertical-align: middle;
+}
+
+#yytrxqjsnw .gt_from_md > :first-child {
+  margin-top: 0;
+}
+
+#yytrxqjsnw .gt_from_md > :last-child {
+  margin-bottom: 0;
+}
+
+#yytrxqjsnw .gt_row {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  margin: 10px;
+  border-top-style: solid;
+  border-top-width: 1px;
+  border-top-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+  vertical-align: middle;
+  overflow-x: hidden;
+}
+
+#yytrxqjsnw .gt_stub {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  text-transform: inherit;
+  border-right-style: solid;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+  padding-left: 12px;
+}
+
+#yytrxqjsnw .gt_summary_row {
+  color: #333333;
+  background-color: #FFFFFF;
+  text-transform: inherit;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#yytrxqjsnw .gt_first_summary_row {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+}
+
+#yytrxqjsnw .gt_grand_summary_row {
+  color: #333333;
+  background-color: #FFFFFF;
+  text-transform: inherit;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#yytrxqjsnw .gt_first_grand_summary_row {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-top-style: double;
+  border-top-width: 6px;
+  border-top-color: #D3D3D3;
+}
+
+#yytrxqjsnw .gt_striped {
+  background-color: rgba(128, 128, 128, 0.05);
+}
+
+#yytrxqjsnw .gt_table_body {
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+}
+
+#yytrxqjsnw .gt_footnotes {
+  color: #333333;
+  background-color: #FFFFFF;
+  border-bottom-style: none;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 2px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+}
+
+#yytrxqjsnw .gt_footnote {
+  margin: 0px;
+  font-size: 90%;
+  padding: 4px;
+}
+
+#yytrxqjsnw .gt_sourcenotes {
+  color: #333333;
+  background-color: #FFFFFF;
+  border-bottom-style: none;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 2px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+}
+
+#yytrxqjsnw .gt_sourcenote {
+  font-size: 90%;
+  padding: 4px;
+}
+
+#yytrxqjsnw .gt_left {
+  text-align: left;
+}
+
+#yytrxqjsnw .gt_center {
+  text-align: center;
+}
+
+#yytrxqjsnw .gt_right {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+#yytrxqjsnw .gt_font_normal {
+  font-weight: normal;
+}
+
+#yytrxqjsnw .gt_font_bold {
+  font-weight: bold;
+}
+
+#yytrxqjsnw .gt_font_italic {
+  font-style: italic;
+}
+
+#yytrxqjsnw .gt_super {
+  font-size: 65%;
+}
+
+#yytrxqjsnw .gt_footnote_marks {
+  font-style: italic;
+  font-size: 65%;
+}
+</style>
+<div id="yytrxqjsnw" style="overflow-x:auto;overflow-y:auto;width:auto;height:auto;"><table class="gt_table">
+  <thead class="gt_header">
+    <tr>
+      <th colspan="2" class="gt_heading gt_title gt_font_normal" style><span style='color:#000000'>Tate Britain: Most Art Acqusitions (since 1823)</span></th>
+    </tr>
+    <tr>
+      <th colspan="2" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border" style></th>
+    </tr>
+  </thead>
+  <thead class="gt_col_headings">
+    <tr>
+      <th class="gt_col_heading gt_columns_bottom_border gt_right" rowspan="1" colspan="1">Year</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_center" rowspan="1" colspan="1">Number</th>
+    </tr>
+  </thead>
+  <tbody class="gt_table_body">
+    <tr>
+      <td class="gt_row gt_right" style="background-color: #FFFFFF; color: #000000;">1856</td>
+      <td class="gt_row gt_center" style="background-color: #C9000C; color: #FFFFFF;">37893</td>
+    </tr>
+    <tr>
+      <td class="gt_row gt_right" style="background-color: #FFFFFF; color: #000000;">1997</td>
+      <td class="gt_row gt_center" style="background-color: #FFEEEA; color: #000000;">3706</td>
+    </tr>
+    <tr>
+      <td class="gt_row gt_right" style="background-color: #FFFFFF; color: #000000;">1975</td>
+      <td class="gt_row gt_center" style="background-color: #FFF1EE; color: #000000;">3046</td>
+    </tr>
+    <tr>
+      <td class="gt_row gt_right" style="background-color: #FFFFFF; color: #000000;">2009</td>
+      <td class="gt_row gt_center" style="background-color: #FFFBFA; color: #000000;">1364</td>
+    </tr>
+    <tr>
+      <td class="gt_row gt_right" style="background-color: #FFFFFF; color: #000000;">1979</td>
+      <td class="gt_row gt_center" style="background-color: #FFFCFC; color: #000000;">1166</td>
+    </tr>
+    <tr>
+      <td class="gt_row gt_right" style="background-color: #FFFFFF; color: #000000;">1988</td>
+      <td class="gt_row gt_center" style="background-color: #FFFDFC; color: #000000;">1103</td>
+    </tr>
+    <tr>
+      <td class="gt_row gt_right" style="background-color: #FFFFFF; color: #000000;">1888</td>
+      <td class="gt_row gt_center" style="background-color: #FFFDFC; color: #000000;">1060</td>
+    </tr>
+    <tr>
+      <td class="gt_row gt_right" style="background-color: #FFFFFF; color: #000000;">1986</td>
+      <td class="gt_row gt_center" style="background-color: #FFFDFD; color: #000000;">996</td>
+    </tr>
+    <tr>
+      <td class="gt_row gt_right" style="background-color: #FFFFFF; color: #000000;">2008</td>
+      <td class="gt_row gt_center" style="background-color: #FFFEFE; color: #000000;">787</td>
+    </tr>
+    <tr>
+      <td class="gt_row gt_right" style="background-color: #FFFFFF; color: #000000;">1996</td>
+      <td class="gt_row gt_center" style="background-color: #FFFFFF; color: #000000;">687</td>
+    </tr>
+  </tbody>
+  <tfoot class="gt_sourcenotes">
+    <tr>
+      <td class="gt_sourcenote" colspan="2">Top 10 years included</td>
+    </tr>
+  </tfoot>
+  
+</table></div>
+<p><strong>Wow!</strong> Clearly the year 1856 stands out far above the others in terms of art acquisition numbers, with <em>37,893</em>. For reference, there are <em>69,201</em> rows in the entire dataset, which means that <em>more than half</em> of <em>Tate’s</em> art was acquired in a single year (assuming this dataset is complete)!</p>
+<p>Let’s visualize the overall trends over time with a line graph:</p>
+<pre class="r"><code>artwork %&gt;%
+  count(acquisitionYear) %&gt;%
+  ggplot(aes(x = acquisitionYear, y = n)) + 
+  geom_line() +
+  geom_segment(x = 1865, xend = 1860, y = 32000, yend = 33000, 
+             arrow = arrow(length = unit(0.08, &quot;inch&quot;)), size = 0.5, 
+             color = &quot;gray20&quot;) + 
+  annotate(&quot;text&quot;, x = 1895, y = 30000, fontface = &quot;italic&quot;,
+           label = &quot;Tate acquired 37,893 \n pieces of art in 1856&quot;) +
+  scale_y_continuous(labels = scales::comma) +
+  labs(x = &quot;&quot;, y = &quot;&quot;, 
+       title = &quot;Yearly Art Acquisitions since 1823&quot;, 
+       subtitle = &quot;Tate Britain&quot;, 
+       caption = &quot;Source: {tidytuesdayR}&quot;) +
+  theme_minimal()</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-3-1.png" width="672" /></p>
+<p>While the small spikes beginning in ~1975 are interesting, the <em>gigantic</em> spike in art acquisitions in 1856 is the big takeaway. Because the year 1856 is such an <em>extreme</em> outlier, it makes me wonder <em>what happened with Tate in 1856</em>?</p>
+<p>Excuse me for a second while I peruse <a href="https://en.wikipedia.org/wiki/Tate_Britain">Wikipedia</a>…</p>
+<p><img src="https://i.ytimg.com/vi/U7CZcd-UYmU/maxresdefault.jpg" /></p>
+</div>
+<div id="j.m.w.-turner" class="section level1">
+<h1>J.M.W. Turner</h1>
+<p>Sure enough, <em>something</em> happened in 1856 that helped explain the gigantic spike in <em>Tate</em> acquisitions. As it turns out, a prolific artist by the name of <a href="https://en.wikipedia.org/wiki/J._M._W._Turner#Legacy"><em>Joseph Mallord William (J.M.W.) Turner</em></a> died in 1851, and after a lengthy court battle, his finished paintings were bequeathed to the British nation. The main part of J.M.W. Turner’s bequest consisted of unfinished paintings and drawings, which in 1910 was rehoused in the Duveen Turner wing at <em>Tate</em> (formerly known as the <em>National Gallery of British Art</em>).</p>
+<p>That’s an interesting history lesson - now let’s dive back into the data! Sure enough, most of the large spike in the acquisitions from 1856 can be attributed to J.M.W. Turner:</p>
+<pre class="r"><code>artwork %&gt;%
+  filter(acquisitionYear == 1856) %&gt;%
+  count(artist, sort = TRUE) %&gt;%
+  slice(1:5) %&gt;%
+  gt() %&gt;%
+  tab_header(
+    title = gt::html(&quot;&lt;span style=&#39;color:#000000&#39;&gt;Tate Britain: Most Art Acqusitions in 1856 (per artist)&lt;/span&gt;&quot;)
+  )  %&gt;%
+  data_color(
+    columns = vars(n),
+    colors = scales::col_numeric(
+      palette = c(&quot;white&quot;, &quot;#C9000C&quot;), 
+      domain = NULL)
+  ) %&gt;%
+  data_color(
+    columns = vars(artist),
+    colors = c(&quot;white&quot;)
+  ) %&gt;%
+  cols_label(
+    artist = &quot;Artist&quot;, 
+    n = &quot;Number&quot;
+  ) %&gt;%
+  tab_source_note(
+    source_note = md(&quot;Top 5 artists in 1856 included&quot;)
+  )</code></pre>
+<style>html {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', 'Fira Sans', 'Droid Sans', Arial, sans-serif;
+}
+
+#cbrtndtajl .gt_table {
+  display: table;
+  border-collapse: collapse;
+  margin-left: auto;
+  margin-right: auto;
+  color: #333333;
+  font-size: 16px;
+  font-weight: normal;
+  font-style: normal;
+  background-color: #FFFFFF;
+  width: auto;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #A8A8A8;
+  border-right-style: none;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #A8A8A8;
+  border-left-style: none;
+  border-left-width: 2px;
+  border-left-color: #D3D3D3;
+}
+
+#cbrtndtajl .gt_heading {
+  background-color: #FFFFFF;
+  text-align: center;
+  border-bottom-color: #FFFFFF;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+}
+
+#cbrtndtajl .gt_title {
+  color: #333333;
+  font-size: 125%;
+  font-weight: initial;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  border-bottom-color: #FFFFFF;
+  border-bottom-width: 0;
+}
+
+#cbrtndtajl .gt_subtitle {
+  color: #333333;
+  font-size: 85%;
+  font-weight: initial;
+  padding-top: 0;
+  padding-bottom: 4px;
+  border-top-color: #FFFFFF;
+  border-top-width: 0;
+}
+
+#cbrtndtajl .gt_bottom_border {
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+}
+
+#cbrtndtajl .gt_col_headings {
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+}
+
+#cbrtndtajl .gt_col_heading {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: normal;
+  text-transform: inherit;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+  vertical-align: bottom;
+  padding-top: 5px;
+  padding-bottom: 6px;
+  padding-left: 5px;
+  padding-right: 5px;
+  overflow-x: hidden;
+}
+
+#cbrtndtajl .gt_column_spanner_outer {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: normal;
+  text-transform: inherit;
+  padding-top: 0;
+  padding-bottom: 0;
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
+#cbrtndtajl .gt_column_spanner_outer:first-child {
+  padding-left: 0;
+}
+
+#cbrtndtajl .gt_column_spanner_outer:last-child {
+  padding-right: 0;
+}
+
+#cbrtndtajl .gt_column_spanner {
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  vertical-align: bottom;
+  padding-top: 5px;
+  padding-bottom: 6px;
+  overflow-x: hidden;
+  display: inline-block;
+  width: 100%;
+}
+
+#cbrtndtajl .gt_group_heading {
+  padding: 8px;
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  text-transform: inherit;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+  vertical-align: middle;
+}
+
+#cbrtndtajl .gt_empty_group_heading {
+  padding: 0.5px;
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  vertical-align: middle;
+}
+
+#cbrtndtajl .gt_from_md > :first-child {
+  margin-top: 0;
+}
+
+#cbrtndtajl .gt_from_md > :last-child {
+  margin-bottom: 0;
+}
+
+#cbrtndtajl .gt_row {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  margin: 10px;
+  border-top-style: solid;
+  border-top-width: 1px;
+  border-top-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+  vertical-align: middle;
+  overflow-x: hidden;
+}
+
+#cbrtndtajl .gt_stub {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  text-transform: inherit;
+  border-right-style: solid;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+  padding-left: 12px;
+}
+
+#cbrtndtajl .gt_summary_row {
+  color: #333333;
+  background-color: #FFFFFF;
+  text-transform: inherit;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#cbrtndtajl .gt_first_summary_row {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+}
+
+#cbrtndtajl .gt_grand_summary_row {
+  color: #333333;
+  background-color: #FFFFFF;
+  text-transform: inherit;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#cbrtndtajl .gt_first_grand_summary_row {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-top-style: double;
+  border-top-width: 6px;
+  border-top-color: #D3D3D3;
+}
+
+#cbrtndtajl .gt_striped {
+  background-color: rgba(128, 128, 128, 0.05);
+}
+
+#cbrtndtajl .gt_table_body {
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+}
+
+#cbrtndtajl .gt_footnotes {
+  color: #333333;
+  background-color: #FFFFFF;
+  border-bottom-style: none;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 2px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+}
+
+#cbrtndtajl .gt_footnote {
+  margin: 0px;
+  font-size: 90%;
+  padding: 4px;
+}
+
+#cbrtndtajl .gt_sourcenotes {
+  color: #333333;
+  background-color: #FFFFFF;
+  border-bottom-style: none;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 2px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+}
+
+#cbrtndtajl .gt_sourcenote {
+  font-size: 90%;
+  padding: 4px;
+}
+
+#cbrtndtajl .gt_left {
+  text-align: left;
+}
+
+#cbrtndtajl .gt_center {
+  text-align: center;
+}
+
+#cbrtndtajl .gt_right {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+#cbrtndtajl .gt_font_normal {
+  font-weight: normal;
+}
+
+#cbrtndtajl .gt_font_bold {
+  font-weight: bold;
+}
+
+#cbrtndtajl .gt_font_italic {
+  font-style: italic;
+}
+
+#cbrtndtajl .gt_super {
+  font-size: 65%;
+}
+
+#cbrtndtajl .gt_footnote_marks {
+  font-style: italic;
+  font-size: 65%;
+}
+</style>
+<div id="cbrtndtajl" style="overflow-x:auto;overflow-y:auto;width:auto;height:auto;"><table class="gt_table">
+  <thead class="gt_header">
+    <tr>
+      <th colspan="2" class="gt_heading gt_title gt_font_normal" style><span style='color:#000000'>Tate Britain: Most Art Acqusitions in 1856 (per artist)</span></th>
+    </tr>
+    <tr>
+      <th colspan="2" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border" style></th>
+    </tr>
+  </thead>
+  <thead class="gt_col_headings">
+    <tr>
+      <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1">Artist</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_center" rowspan="1" colspan="1">Number</th>
+    </tr>
+  </thead>
+  <tbody class="gt_table_body">
+    <tr>
+      <td class="gt_row gt_left" style="background-color: #FFFFFF; color: #000000;">Turner, Joseph Mallord William</td>
+      <td class="gt_row gt_center" style="background-color: #C9000C; color: #FFFFFF;">37711</td>
+    </tr>
+    <tr>
+      <td class="gt_row gt_left" style="background-color: #FFFFFF; color: #000000;">De Loutherbourg, Philip James</td>
+      <td class="gt_row gt_center" style="background-color: #FFFFFE; color: #000000;">82</td>
+    </tr>
+    <tr>
+      <td class="gt_row gt_left" style="background-color: #FFFFFF; color: #000000;">Girtin, Thomas</td>
+      <td class="gt_row gt_center" style="background-color: #FFFFFF; color: #000000;">56</td>
+    </tr>
+    <tr>
+      <td class="gt_row gt_left" style="background-color: #FFFFFF; color: #000000;">Dayes, Edward</td>
+      <td class="gt_row gt_center" style="background-color: #FFFFFF; color: #000000;">13</td>
+    </tr>
+    <tr>
+      <td class="gt_row gt_left" style="background-color: #FFFFFF; color: #000000;">British School 18th century</td>
+      <td class="gt_row gt_center" style="background-color: #FFFFFF; color: #000000;">9</td>
+    </tr>
+  </tbody>
+  <tfoot class="gt_sourcenotes">
+    <tr>
+      <td class="gt_sourcenote" colspan="2">Top 5 artists in 1856 included</td>
+    </tr>
+  </tfoot>
+  
+</table></div>
+<p>Next, I wanted to take a deeper dive into J.M.W. Turner’s style. The figure below looks at his most frequently-used mediums. As the graph suggests, most of his work used the <em>graphite on paper</em> medium, which makes sense considering that the main part of his bequest consisted of unfinished paintings and drawings.</p>
+<pre class="r"><code>artwork %&gt;%
+  filter(artist == &quot;Turner, Joseph Mallord William&quot;) %&gt;%
+  mutate(medium = fct_lump(medium, 5), 
+         highlight = fct_other(medium, 
+                               keep = &quot;Graphite on paper&quot;, 
+                               other_level = &quot;Other&quot;)) %&gt;%
+  drop_na(medium) %&gt;%
+  ggplot(aes(x = fct_rev(fct_infreq(medium)), fill = highlight)) + 
+  geom_bar() + 
+  labs(x = &quot;&quot;, y = &quot;&quot;, 
+       title = &quot;J.M.W. Turner&quot;, 
+       subtitle = &quot;Top Mediums Used&quot;) +
+  scale_y_continuous(labels = scales::comma) +
+  scale_fill_manual(values = c(
+    Other = &quot;gray&quot;, `Graphite on paper` = &quot;#8C72D2&quot;
+  ), 
+  guide = &quot;none&quot;) +
+  coord_flip() + 
+  theme_minimal()</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-5-1.png" width="672" /></p>
+</div>
+<div id="wrapping-it-up" class="section level1">
+<h1>Wrapping It Up</h1>
+<p>I went into this project not really knowing what to expect, due to my total inexperience in the area. I wanted to investigate trends in art acquisitions and artistic mediums of works housed at <em>Tate</em>, but this ended up being all about <em>J.M.W. Turner</em>. His work accounts for over half of all works in the data, and as such his common <em>graphite on paper</em> medium also overshadows those of other works.</p>
+<p>For fun, let’s see which mediums are used the most among <em>non-J.M.W. Turner art</em> housed at <em>Tate</em>.</p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-6-1.png" width="672" /></p>
+<p>While <em>oil paint on canvas</em> is the most frequently-used medium by <em>Tate</em> artists <em>besides</em> J.M.W. Turner, most of these works were acquired by <em>Tate</em> before 1950. There’s a large spike around 1975 in <em>lithograph</em> and <em>screenprint</em> acquisitions that does <em>not</em> seem to be tied to a single artist (data not shown). Finding the source of this spike is a painting for another day.</p>
+<p>Thanks for reading!</p>
+<p><img src="https://media.giphy.com/media/AbPNdmgk6TJK/giphy.gif" /></p>
+</div>

@@ -1,0 +1,253 @@
+---
+title: The One with the Pie Charts
+author: Anthony Scotina
+date: '2020-11-25'
+slug: the-one-with-the-pie-charts
+categories: []
+tags:
+  - rstats
+  - tidytuesday
+  - dataviz
+subtitle: ''
+summary: ''
+authors: []
+lastmod: '2021-05-06T10:05:12-04:00'
+featured: no
+image:
+  caption: ''
+  focal_point: ''
+  preview_only: true
+projects: []
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+Pie charts are **bad**. 
+
+Pie charts are only good at describing proportions out of a whole, they are [the Aquaman of data visualization](https://www.businessinsider.com/pie-charts-are-the-worst-2013-6), and they are often made even worse with 3D elements and too many colors that blend together. 
+
+In fact, research dating back to the 1980s shows that humans have a much stronger ability to perceive differences in *position* than they do in *angles* and *area* ([Cleveland and McGill, 1984](http://euclid.psych.yorku.ca/www/psy6135/papers/ClevelandMcGill1984.pdf)), and pie charts are basically *all* about angles and area!
+
+I go on this rant in my Statistics classes all the time ^[Although, I call pie charts the *Ben Affleck version of Batman of data visualization*.]; to my students none of the above is new and is almost as commonplace in one of my classes as a separate rant about the general *awesomeness* of R. But one thing that always trips me is when I get trolled into showing my students how to create pie charts in R. I always forget how to make them in R, because I *never* make them in R! That's what this post is about. I'm going to describe/teach myself one way to make pie charts in R via `{ggplot2}`, and then we'll forget this ever happened and go back to using bar graphs for everything. 
+
+# Pie Charts
+
+We'll be using transcript data from the `{friends}` package, which is also [available via TidyTuesday](https://github.com/rfordatascience/tidytuesday/blob/master/data/2020/2020-09-08/readme.md). Our goal is to see which of the **five main characters** has *the most lines*, both overall and per season. 
+
+```{r}
+library(tidyverse)
+library(gt)
+
+friends <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-09-08/friends.csv')
+
+friends_main <- friends %>%
+  filter(speaker %in% c("Monica Geller", "Ross Geller", "Joey Tribbiani", "Phoebe Buffay", "Rachel Green", "Chandler Bing"))
+```
+
+As an initial exploratory step, one of my favorite functions to use is `count()`. Because each row in the data represents a unique line in the show, we'll count the number of lines per character overall, with some additional table styling from the `{gt}` package. 
+
+```{r}
+friends_main %>%
+  count(speaker) %>%
+  gt() %>%
+  tab_header(
+    title = gt::html("<span style='color:#AC372B'>Friends: Most Lines per Character</span>")
+  )  %>%
+  data_color(
+    columns = vars(speaker, n),
+    colors = c("white")
+  )
+```
+
+Not surprisingly, each of the five main characters speaks a lot throughout the series, with Rachel and Ross in the lead. Now let's visualize these data with... a pie chart... 😨😱
+
+```{r}
+friends_palette <- c("#CFB789", "#AC372B", "#F0BE5F", "#7E7E9D", "#6F7959", "#916C47")
+
+friends_main %>%
+  group_by(speaker) %>%
+  summarize(n_lines = n()) %>%
+  mutate(prop_lines = (n_lines/sum(n_lines))*100) %>%
+  ggplot(aes(x = "", y = prop_lines, fill = speaker)) +
+  geom_bar(stat = "identity", color = "white") + 
+  coord_polar(theta = "y", start = 0) + 
+  geom_text(aes(label = paste0(round(prop_lines, 1), "%")), color = "white", 
+            position = position_stack(vjust = 0.5), fontface = "bold") +
+  scale_fill_manual(values = friends_palette) +
+  labs(fill = "", title = "Friends", subtitle = "Who has the most lines?") +
+  theme_void()
+```
+
+Before we get to the plot itself, a few notes:
+
+- I added a custom color palette based on the *Friends* color theme. 
+- I used a `group_by() %>% summarize() %>% mutate()` statement to get the proportion of lines for each character out of the total. This wouldn't be necessary if we were visualizing the *number* of lines per character. 
+- One of my favorite things about `{ggplot2}` is that it makes you work *really hard* to make a pie chart! There isn't a simple `geom_pie()` that just gives you a pie chart (unless I'm missing something). You have to make a bar graph first, and *then* convert it to polar coordinates, and *then* add in text indicating the percentage for each region. 
+
+Now to the pie chart... It's fine, I guess. It's pretty clear that the lines per main character are relatively evenly-dispersed throughout the series. And if the main goal of the pie chart is to show that, then I begrudgingly guess it works. BUT they are *not* easy to make in R, and there are better options (more on this in a few). 
+
+Let's say we asked a more interesting question: What are the trends in lines per main character *per season*? In this case we need to visualize *two* variables: speaker and season, along with some metric that summarizes lines per speaker/season combination. Pie charts are **awful** with this:
+
+```{r}
+friends_main %>%
+  group_by(season, speaker) %>%
+  summarize(n_lines = n()) %>%
+  mutate(prop_lines = (n_lines/sum(n_lines))*100) %>%
+  ggplot(aes(x = "", y = prop_lines, fill = speaker)) +
+  geom_bar(stat = "identity", color = "white") + 
+  coord_polar(theta = "y", start = 0) + 
+  geom_text(aes(label = paste0(round(prop_lines, 1), "%")), color = "white", 
+            position = position_stack(vjust = 0.5), fontface = "bold", size = 2.5) +
+  scale_fill_manual(values = friends_palette) +
+  facet_wrap( ~ season, nrow = 3) +
+  labs(fill = "", title = "Friends", subtitle = "Who has the most lines per season?") +
+  theme_void()
+```
+
+![](https://media.giphy.com/media/1ykhXVZskuM6cpBMlG/giphy.gif)
+
+There is just *so much* going on! And all of the issues with pie charts in general (angles, area, Aquaman) are compounded by the additional variable added to the mix. The difference in code between the single pie chart and multiples isn't large; I added a `facet_wrap()` and grouped by `season` and `speaker`. But it's challenging to spot any trends in character lines across different seasons. 
+
+## Side note: Donut Charts
+
+Before we get to bar graphs (which are **good**), it is worth mentioning *donut charts*. They are a *slight improvement* over pie charts. With pie charts, our eyes are naturally pulled directly to the center, and because the center is filled in, we distinguish different slices based on both *angle* and *area*. 
+
+Here's a donut chart:
+
+```{r}
+friends_main %>%
+  group_by(speaker) %>%
+  summarize(n_lines = n()) %>%
+  mutate(prop_lines = (n_lines/sum(n_lines))*100) %>%
+  ggplot(aes(x = 2, y = prop_lines, fill = speaker)) +
+  geom_bar(stat = "identity", color = "white") + 
+  coord_polar(theta = "y", start = 0) + 
+  geom_text(aes(label = paste0(round(prop_lines, 1), "%")), color = "white", 
+            position = position_stack(vjust = 0.5), fontface = "bold") +
+  scale_fill_manual(values = friends_palette) +
+  labs(fill = "") +
+  theme_void() + 
+  xlim(0.5, 2.5)
+```
+
+The center is hollowed out (from using `xlim(0.5, 2.5)`), which allows us to focus more on the *length* of each slice (and *area*, still). And we are *very good* at judging differences in linear distances! So if you *must* choose a rounded graph, go with the **donut chart** over the **pie chart** - the viewer will be able to focus much more on the *length* of each slice, and there isn't the added distraction of unnecessary space in the center.
+
+# Bar Graphs FTW!
+
+To make a slight correction to the previous sentence: If you *must* choose a rounded graph... **don't**, and use a **bar graph** instead. With these, we can focus *entirely* on the size/height of each bar. Plus, they are much easier to make in R:
+
+```{r}
+friends_main %>%
+  count(speaker) %>%
+  ggplot(aes(x = fct_reorder(speaker, n), y = n, fill = speaker)) +
+  geom_col(color = "white", show.legend = FALSE) +
+  scale_fill_manual(values = friends_palette) +
+  labs(x = "", y = "Number of Total Lines") +
+  coord_flip() +
+  theme_classic() 
+```
+
+I used `geom_col()` here because I find it the more flexible bar graph option in `{ggplot2}`, but `geom_bar()` also works well. Otherwise, the only additional thing I chose to do was reorder the levels of `speaker` so that the bars were in descending order. Nevertheless, it is *clear* here that Rachel and Ross have the most total lines in *Friends*, something we would have a lot of trouble determining from the pie charts if I didn't overlay the percentages within each slice. With the slices in the pie charts, we aren't judging differences in length; with the bar graphs, we are!
+
+Here's how we could use **stacked** bar graphs to visualize the relationship between main character lines and season. All I did was add `season` to `count()` (because here we're counting speaker lines *per season* rather than *overall*), and swapped around the `x` and `y` aesthetics:
+
+```{r}
+friends_main %>%
+  count(season, speaker) %>%
+  ggplot(aes(x = factor(season), y = n, fill = speaker)) +
+  geom_col(color = "white", position = "fill") +
+  scale_fill_manual(values = friends_palette) +
+  labs(x = "Season", y = "Proportion of lines per season", fill = "") +
+  coord_flip() +
+  theme_classic() 
+```
+
+To be clear, there is still quite a bit going on in this graphic, though I think it is much easier to digest and comprehend than the multiple pie charts from earlier. 
+
+## Bonus: Better Bar Graphs
+
+Here are a couple ways that we can make these bar graphs look even nicer (special thanks to Thomas Mock for his [blog post](https://themockup.blog/posts/2020-08-05-a-bar-chart-5-ways/) on bar graphs!). 
+
+### Direct Labels
+
+```{r}
+friends_main %>%
+  count(speaker) %>%
+  mutate(line_text = c("8,465", "8,171", "8,441", "7,501", "9,312 total lines", "9,157")) %>%
+  ggplot(aes(x = fct_reorder(speaker, n), y = n, fill = speaker)) +
+  geom_col(color = "white", show.legend = FALSE, width = 0.7) + 
+  geom_text(aes(x = fct_reorder(speaker, n), y = n, label = line_text), 
+            color = "white", hjust = 1.1, fontface = "bold", position = position_nudge(x = -.020)) +
+  scale_fill_manual(values = friends_palette) +
+  labs(x = "", y = "") +
+  coord_flip() +
+  theme_minimal() + 
+  theme(text = element_text(face = "bold"), 
+        axis.text.x = element_blank(),
+        axis.ticks = element_blank(),
+        panel.grid = element_blank()) + 
+  scale_y_continuous(expand = c(0, 0),
+                       breaks = scales::breaks_pretty(n = 5))
+```
+
+### Lollipop Chart (with Friends font)
+
+```{r}
+library(extrafont)
+# Had to download Gabriel Weiss' Friends Font
+
+friends_main %>%
+  count(speaker) %>%
+  mutate(line_text = c("8,465", "8,171", "8,441", "7,501", "9,312", "9,157")) %>%
+  ggplot(aes(x = fct_reorder(speaker, n), y = n, fill = speaker)) +
+  geom_col(color = "white", show.legend = FALSE, width = 0.5, alpha = 0.8) + 
+  geom_point(shape = 21, fill = "gray", color = "black", size = 20, stroke = 1) +
+  geom_text(aes(x = fct_reorder(speaker, n), y = n, label = line_text), 
+            color = "black", hjust = 0.5, fontface = "bold") +
+  scale_fill_manual(values = friends_palette) +
+  labs(x = "", y = "", title = "Friends", subtitle = "Number of lines per character") +
+  coord_flip() +
+  theme_minimal() + 
+  theme(text = element_text(face = "bold", family = "Gabriel Weiss' Friends Font"), 
+        axis.text.x = element_blank(),
+        axis.ticks = element_blank(),
+        panel.grid = element_blank()) + 
+  scale_y_continuous(limits = c(0,10000), expand = c(0, 0),
+                     breaks = scales::breaks_pretty(n = 5))
+```
+
+# Word Clouds
+
+Because we're analyzing text data, I'd be remiss if I didn't include a word cloud...
+
+```{r}
+library(tidytext)
+library(ggwordcloud)
+
+friends_tidytext <- friends_main %>%
+  unnest_tokens(output = word, input = text, token = "words") %>%
+  anti_join(stop_words) %>%
+  group_by(speaker) %>%
+  add_count(word) %>% 
+  distinct(word, .keep_all = TRUE) %>% 
+  arrange(desc(n)) %>%
+  slice(1:10) %>%
+  ungroup()
+
+friends_tidytext %>%
+  ggplot(aes(label = word, size = n, color = speaker)) + 
+  geom_text_wordcloud(family = "Gabriel Weiss' Friends Font", seed = 12, eccentricity = 1, show.legend = TRUE) + 
+  scale_color_manual(values = friends_palette) + 
+  scale_size_area(max_size = 10) + 
+  labs(color = "", size = "") +
+  theme(text = element_text(size = 14, family = "Gabriel Weiss' Friends Font")) + 
+  theme_void()
+```
+
+# Concluding Thoughts
+
+That's enough about pie charts for one day! Let's never speak of this again. 
+
+![](https://media.giphy.com/media/U3y3uwDUHWYFovkyy3/giphy.gif)

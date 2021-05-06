@@ -1,0 +1,191 @@
+---
+title: 'Defeating Tom Nook with #rstats'
+author: Anthony Scotina
+date: '2020-06-10'
+slug: defeating-tom-nook-with-rstats
+categories: []
+tags:
+  - rstats
+  - tidyverse
+  - tidytuesday
+subtitle: ''
+summary: ''
+authors: []
+lastmod: '2021-05-06T10:02:43-04:00'
+featured: no
+image:
+  caption: ''
+  focal_point: ''
+  preview_only: true
+projects: []
+---
+
+<script src="{{< blogdown/postref >}}index_files/header-attrs/header-attrs.js"></script>
+<script src="{{< blogdown/postref >}}index_files/twitter-widget/widgets.js"></script>
+
+
+<p>I love Animal Crossing.</p>
+<p>For those unfamiliar, <a href="https://en.wikipedia.org/wiki/Animal_Crossing">Animal Crossing</a> is a social simulation video game franchise, where you play as a <em>human</em> living in a village inhabiting by talking animals. There is really <em>no point</em> to the game other than paying off your house loans and building up your village through crafting, fishing, bug hunting, planting, etc. There are endless possibilities and you can play at <em>entirely your own pace</em>, which is why it is so appealing and inviting to many different play styles.</p>
+<p>While the <em>Animal Crossing</em> franchise has been around since 2001, I finally joined the hype train with <em>Animal Crossing: New Horizons</em> for the Nintendo Switch. While the overall scope of <em>New Horizons</em> is similar to other entries in the franchise, <em>New Horizons</em> places you on a deserted island where you slowly pay off your debts to <strong>Tom Nook</strong>, the greedy capitalist raccoon who serves as the one barrier to quickly building up your island paradise.</p>
+<p>In a time full of uncertainty and distress, it has been nice having a little island getaway. So naturally, I was overjoyed when I heard that an Animal Crossing dataset was added to the <strong>amazing</strong> <a href="https://github.com/rfordatascience/tidytuesday">TidyTuesday repository</a>.</p>
+<p>And I knew <em>right away</em> what question I wanted to answer with the data:</p>
+<blockquote class="twitter-tweet" data-width="550" data-lang="en" data-dnt="true" data-theme="light"><p lang="en" dir="ltr">my mom just asked me if it is possible to defeat tom nook</p>&mdash; hacker! 🔪 (@octolinghacker) <a href="https://twitter.com/octolinghacker/status/1250245127118835712?ref_src=twsrc%5Etfw">April 15, 2020</a></blockquote>
+
+<p>It’s time to show that greedy raccoon who’s boss!</p>
+<div id="exploring-the-data" class="section level2">
+<h2>Exploring the data</h2>
+<p>The analysis that follows will use the <a href="https://github.com/rfordatascience/tidytuesday/blob/master/data/2020/2020-05-05/readme.md">Animal Crossing data posted to the TidyTuesday GitHub repository</a>, which was sourced from <a href="https://github.com/jefflomacy/villagerdb">VillagerDB</a> and <a href="https://www.metacritic.com/game/switch/animal-crossing-new-horizons/critic-reviews">Metacritic</a>.</p>
+<pre class="r"><code>library(tidyverse)
+library(ggthemr)
+library(ggpattern)
+library(extrafont)
+
+ggthemr(&quot;grape&quot;, type = &quot;outer&quot;, layout = &quot;minimal&quot;)
+
+critic &lt;- read_tsv(&quot;https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-05-05/critic.tsv&quot;)
+user_reviews &lt;- read_tsv(&quot;https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-05-05/user_reviews.tsv&quot;)
+items &lt;- read_csv(&quot;https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-05-05/items.csv&quot;)
+villagers &lt;- read_csv(&quot;https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-05-05/villagers.csv&quot;)</code></pre>
+<p>These datasets contain a <em>ton</em> of information for any fan of <em>Animal Crossing</em>, ranging from characteristics of every item appearing in <em>New Horizons</em> to user reviews of the game (focusing on the latest edition rather than the entire franchise).</p>
+<p>My goal is, quite simply, to <em>defeat Tom Nook</em>. But let’s rephrase this into a question that makes slightly more sense in the context of the data. Because Nook operates the village store and charges <em>exorbitant</em> prices for basically everything, <em>how can we quickly put Nook out of business</em>? We might have a good shot if we <em>stop buying Nook’s most highly-priced items</em>, so let’s find <strong>which items sold from Nook businesses sell for the most</strong>.</p>
+<p>Using the <code>items</code> dataset, let’s first check the source of each item in the game<a href="#fn1" class="footnote-ref" id="fnref1"><sup>1</sup></a>:</p>
+<pre class="r"><code>items %&gt;%
+  count(sources, sort = TRUE)</code></pre>
+<pre><code>## # A tibble: 126 x 2
+##    sources                              n
+##    &lt;chr&gt;                            &lt;int&gt;
+##  1 NA                                3663
+##  2 Nook&#39;s Cranny                      329
+##  3 Able Sisters                       133
+##  4 Underground (dig spot)              77
+##  5 Nook Shopping                       49
+##  6 crossbreeding flowers               30
+##  7 Find on ground at mystery island    30
+##  8 Saharah                             27
+##  9 Find on ground                      23
+## 10 Nook Miles System                   15
+## # … with 116 more rows</code></pre>
+<p>There are a lot of <code>NA</code>s, which consists primarily of <em>craftable items</em> that you create yourself by gathering resources from around your island, or <em>villager photos</em> obtainable by earning a high enough friendship level with them. Many of the items come from Nook’s Cranny (Tom Nook’s store), while a handful of items come from other Nook businesses.</p>
+<p>As one small data-cleaning step before we continue, I’d like to remove <em>duplicate items</em>, which mostly appear due to multiple colors of the same item:</p>
+<pre class="r"><code>items_dup &lt;- items %&gt;%
+  distinct(name, .keep_all = TRUE)</code></pre>
+</div>
+<div id="defeating-tom-nook" class="section level2">
+<h2>Defeating Tom Nook</h2>
+<p>First, let’s find which <em>item categories</em> Nook tends to sell for the most, on average. To do this, I’m using <code>stringr</code>’s <code>str_detect</code> to find elements of the <code>sources</code> column that contain the string <code>"Nook"</code> (rather than filtering by every Nook business one-by-one)<a href="#fn2" class="footnote-ref" id="fnref2"><sup>2</sup></a>:</p>
+<pre class="r"><code>items_dup %&gt;%
+  filter(str_detect(sources, pattern = &quot;Nook&quot;)) %&gt;%
+  group_by(category) %&gt;%
+  summarize(avg_sell = mean(buy_value, na.rm = TRUE)) %&gt;%
+  ggplot(aes(x = fct_reorder(category, avg_sell), y = avg_sell)) +
+  geom_col(fill = &quot;tan3&quot;, color = &quot;gray89&quot;) +
+  labs(
+    x = &quot;&quot;, y = &quot;Average Sell Value (in bells)&quot;,
+    title = &quot;Which items does Nook sell for the most?&quot;,
+    caption = &quot;Source: TidyTuesday and VillagerDB&quot;
+  ) +
+  theme(
+    text = element_text(size = 14, family = &quot;FinkHeavy&quot;),
+    plot.caption = element_text(size = 10)
+  ) +
+  scale_y_continuous(labels = scales::comma) +
+  coord_flip()</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-5-1.png" width="2400" /></p>
+<p>I think we could survive by not purchasing <em>wallpaper</em> and <em>furniture</em> from Nook; there are plenty of craftable items - just live off the land! Also, Saharah the traveling camel will visit once a week and sell better wallpaper and flooring. Not purchasing any music would be tough, but…perhaps worth it?</p>
+</div>
+<div id="truly-defeating-tom-nook" class="section level2">
+<h2>(Truly) Defeating Tom Nook</h2>
+<p>It isn’t enough to stop purchasing items from Nook businesses. He probably has a pretty large nest egg by now; he’s been overcharging since 2001! No, we can do so much more. So rather than <em>not</em> buying <em>Nook items</em>, what if we <em>sold items back to Nook</em> that <strong>Nook himself doesn’t sell in the first place</strong>? I’m thinking (i) craft items from resources around your island, (ii) sell these to Nook, (iii) <strong>PROFIT</strong>, (iv) rinse and repeat.</p>
+<p>As before, I’ll use <code>str_detect()</code>, but now I’ll use it to <em>remove</em> any categories that contain the string “Nook” (remember, we don’t want to sell Nook his own items which he already profited from selling). Let’s find which <em>item categories</em> Nook tends to buy back for the most, on average, <em>restricting to items that Nook doesn’t sell in the first place</em>.</p>
+<pre class="r"><code>items_dup %&gt;%
+  filter(!str_detect(sources, pattern = &quot;Nook&quot;) | is.na(sources)) %&gt;%
+  group_by(category) %&gt;%
+  summarize(avg_buyback = mean(sell_value, na.rm = TRUE)) %&gt;%
+  ggplot(aes(x = fct_reorder(category, avg_buyback), y = avg_buyback)) +
+  geom_col(fill = &quot;tan3&quot;, color = &quot;gray89&quot;) +
+  labs(
+    x = &quot;&quot;, y = &quot;Average Sell Value (in bells)&quot;,
+    title = &quot;Defeating Tom Nook&quot;,
+    subtitle = &quot;Which non-Nook items have the highest sell value?&quot;,
+    caption = &quot;Source: TidyTuesday and VillagerDB&quot;
+  ) +
+  theme(
+    text = element_text(size = 14, family = &quot;FinkHeavy&quot;),
+    plot.caption = element_text(size = 10)
+  ) +
+  scale_y_continuous(labels = scales::comma) +
+  coord_flip()</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-6-1.png" width="2400" /></p>
+<p>As I mentioned previously, there isn’t a major need to buy furniture from Nook; there is plenty of furniture that you can obtain through other means! Fortunately, Nook values this furniture quite highly, and will buy it back for an average of 5,479 bells (<em>Animal Crossing</em> currency). Let’s take a closer look at the <code>Furniture</code> category. If most of these items are craftables, which items should I focus on the most, if I want to sell for the most bells?</p>
+<p>The top 4 <em>furniture items</em> in terms of <em>sell value</em> are given below. We had to omit the <code>"Robot Hero"</code> and <code>"Grand Piano"</code> items - these weren’t flagged in the data as a Nook item, but they can actually be redeemed using Nook Miles and bought from Nook’s Cranny, respectively<a href="#fn3" class="footnote-ref" id="fnref3"><sup>3</sup></a>.</p>
+<pre class="r"><code>items_top4 &lt;- items_dup %&gt;%
+  filter(category == &quot;Furniture&quot; &amp; !(name %in% c(&quot;Robot Hero&quot;, &quot;Grand Piano&quot;))) %&gt;%
+  filter(!str_detect(sources, pattern = &quot;Nook&quot;) | is.na(sources)) %&gt;%
+  mutate(name = fct_reorder(name, sell_value)) %&gt;%
+  top_n(4, wt = sell_value)
+items_top4 %&gt;%
+  select(name, sell_value)</code></pre>
+<pre><code>## # A tibble: 4 x 2
+##   name                   sell_value
+##   &lt;fct&gt;                       &lt;dbl&gt;
+## 1 Elaborate Kimono Stand      55000
+## 2 Golden Casket               80000
+## 3 Golden Seat                 50000
+## 4 Golden Toilet               60000</code></pre>
+<p>This table consists predominately of <em>gold</em> items. Gold is a relatively rare item found around your island, so crafting items with gold are expected to net a lot of bells!</p>
+<p>Let’s visualize this table with a barplot. But to take things one step further, I’ll use the wonderful <code>ggpattern</code> package <a href="https://coolbutuseless.github.io/package/ggpattern/">https://coolbutuseless.github.io/package/ggpattern/</a> to embed image files in the bars. Conveniently enough, image links for each item are <em>already included in the data</em>. Thanks, TidyTuesday!</p>
+<p>After a bit of wrangling to get the item image to match up with the correct item (while preserving the appropriate factor order based on <em>descending</em> <code>sell_value</code>), we can see that the <strong>golden casket</strong> is the highest-selling item not previously sold by Nook.</p>
+<pre class="r"><code>image_urls &lt;- items_top4 %&gt;%
+  mutate(image_url = fct_reorder(image_url, sell_value)) %&gt;%
+  pull(image_url)
+image_urls &lt;- levels(image_urls)
+
+
+items_top4 %&gt;%
+  ggplot(aes(x = name, y = sell_value)) +
+  geom_col_pattern(aes(pattern_filename = name),
+    pattern = &quot;image&quot;,
+    pattern_type = &quot;none&quot;,
+    fill = &quot;tan3&quot;,
+    colour = &quot;gray89&quot;,
+    pattern_scale = 1,
+    pattern_filter = &quot;point&quot;,
+    pattern_gravity = &quot;east&quot;
+  ) +
+  theme(legend.position = &quot;none&quot;) +
+  scale_pattern_filename_discrete(choices = image_urls) +
+  scale_pattern_discrete(guide = guide_legend(nrow = 1)) +
+  labs(
+    x = &quot;&quot;, y = &quot;Average Sell Value (in bells)&quot;,
+    title = &quot;Which non-Nook items have the highest sell value?\n(top 4 furniture items, by sell value)&quot;,
+    caption = &quot;Source: TidyTuesday and VillagerDB&quot;
+  ) +
+  theme(
+    text = element_text(size = 14, family = &quot;FinkHeavy&quot;),
+    plot.caption = element_text(size = 10)
+  ) +
+  scale_y_continuous(labels = scales::comma) +
+  coord_flip()</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-8-1.png" width="2400" /></p>
+</div>
+<div id="concluding-thoughts" class="section level2">
+<h2>Concluding Thoughts</h2>
+<p>What have we learned?</p>
+<ul>
+<li>You can accumulate plenty of furniture and other housewares without purchasing them from Tom Nook.</li>
+<li>Selling furniture and fish tend to net <em>you</em> the highest profit.</li>
+<li>There are <em>many</em> items that Nook does not sell which he will pay the big bells for.</li>
+<li>Save your <strong>gold</strong>. You can use it to craft items that sell for a lot of bells!</li>
+</ul>
+<p>I’ll be right back - I need to start a <strong>golden toilet</strong> business on my <em>Animal Crossing</em> island!</p>
+<p>I’m onto you, Nook.</p>
+<p><img src="https://tenor.com/view/animal-crossing-tom-nook-back-to-work-so-its-back-to-work-for-me-monday-gif-16625879.gif" /></p>
+</div>
+<div class="footnotes">
+<hr />
+<ol>
+<li id="fn1"><p>I <em>love</em> <code>count()</code>. It’s almost always the first function I use in an exploratory analysis.<a href="#fnref1" class="footnote-back">↩︎</a></p></li>
+<li id="fn2"><p>I had to download the “FinkHeavy” font (as a <code>.tiff</code> file), which I then loaded via the <code>extrafont</code> package. This is the font that the <em>Animal Crossing</em> franchise widely uses.<a href="#fnref2" class="footnote-back">↩︎</a></p></li>
+<li id="fn3"><p>A bunch of items were tied for the <em>fifth</em> spot, which was why I chose the somewhat-arbitrary-sounding “top 4”.<a href="#fnref3" class="footnote-back">↩︎</a></p></li>
+</ol>
+</div>

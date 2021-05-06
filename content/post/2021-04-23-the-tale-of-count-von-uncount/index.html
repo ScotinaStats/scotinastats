@@ -1,0 +1,174 @@
+---
+title: The Tale of count() von uncount()
+author: Anthony Scotina
+date: '2021-04-23'
+slug: the-tale-of-count-von-uncount
+categories: []
+tags:
+  - rstats
+  - tidyverse
+  - tidytuesday
+subtitle: ''
+summary: ''
+authors: []
+lastmod: '2021-05-06T10:07:58-04:00'
+featured: no
+image:
+  caption: ''
+  focal_point: ''
+  preview_only: no
+projects: []
+---
+
+<script src="{{< blogdown/postref >}}index_files/header-attrs/header-attrs.js"></script>
+
+
+<p>I recently decided to take a deep dive into the <code>tidyverse</code>, to see if there were functions that I’ve never seen before that I <em>should</em> be using.</p>
+<p>Through this short exercise, I found a bunch of <em>super</em> helpful functions that I should probably be using more often! Functions like, <code>unite()</code>, <code>coalesce()</code>, a bunch of <a href="https://www.tidyverse.org/blog/2020/06/dplyr-1-0-0/">new features</a> from <code>dplyr 1.0.0</code>, and basically everything from <code>stringr</code> (I really need to work with strings more!). But due primarily to its relation to one of my <em>all time favorite</em> functions, one function stood out above all the rest: <code>tidyr::uncount()</code></p>
+<p>I know, my mind is blown, too! Before we get more into what <code>uncount()</code> does, let’s first motivate its use by working through an example with <code>dplyr::count()</code>.</p>
+<div id="dplyrcount" class="section level1">
+<h1><code>dplyr::count()</code></h1>
+<p>The <code>count()</code> function from <code>{dplyr}</code> is one of my all-time favorite R functions, due in part to its simplicity. All you do is pass a variable to <code>count()</code> and it <em>counts</em> up the number of occurrences of unique values for that variable! Suppose one wanted to count the number of IKEA furniture items belonging to certain categories (beds, sofas, chairs, etc.). Does that sound oddly specific? It’s because we can actually do this using <a href="https://github.com/rfordatascience/tidytuesday/blob/master/data/2020/2020-11-03/readme.md">IKEA furniture data from TidyTuesday</a>!</p>
+<pre class="r"><code>library(tidyverse)
+ikea &lt;- read_csv(&#39;https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-11-03/ikea.csv&#39;)</code></pre>
+<p>Now let’s count up how many IKEA furniture items fall within each <code>category</code>:</p>
+<pre class="r"><code>ikea %&gt;%
+  count(category, sort = TRUE)</code></pre>
+<pre><code>## # A tibble: 17 x 2
+##    category                                 n
+##    &lt;chr&gt;                                &lt;int&gt;
+##  1 Tables &amp; desks                         612
+##  2 Bookcases &amp; shelving units             548
+##  3 Chairs                                 481
+##  4 Sofas &amp; armchairs                      428
+##  5 Cabinets &amp; cupboards                   292
+##  6 Wardrobes                              236
+##  7 Outdoor furniture                      216
+##  8 Beds                                   208
+##  9 TV &amp; media furniture                   190
+## 10 Chests of drawers &amp; drawer units       125
+## 11 Children&#39;s furniture                   124
+## 12 Nursery furniture                       97
+## 13 Bar furniture                           47
+## 14 Trolleys                                28
+## 15 Café furniture                          26
+## 16 Sideboards, buffets &amp; console tables    23
+## 17 Room dividers                           13</code></pre>
+<p>It looks like most IKEA furniture items are <em>tables &amp; desks</em>, <em>bookcases &amp; shelving units</em>, or <em>chairs</em>. With <code>count()</code>, we not only see the <em>counts</em> of each category, but also the categories themselves! Notice that I added the <code>sort = TRUE</code> option, which arranges the counts in <em>descending</em> order.</p>
+<p>We can also pass this off to <code>ggplot()</code> and make a bar graph of the <code>category</code> counts. After some <code>{forcats}</code> magic to arrange the bars in descending order and a few other small tweaks, we have a bar graph of IKEA furniture counts:</p>
+<pre class="r"><code>ikea %&gt;%
+  count(category, sort = TRUE) %&gt;%
+  ggplot(aes(x = fct_reorder(category, n), y = n)) + 
+  geom_col(color = &quot;white&quot;, fill = &quot;slateblue&quot;) + 
+  labs(x = &quot;&quot;, y = &quot;Count&quot;, 
+       title = &quot;Which types of IKEA furniture are most common?&quot;, 
+       caption = &quot;Source: TidyTuesday via Kaggle and IKEA&quot;) +
+  coord_flip() + 
+  theme_minimal(base_size = 12)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-3-1.png" width="672" /></p>
+<p>Another neat trick you can do within <code>count()</code> is add the <code>wt</code> argument, for which R will compute <code>sum(wt)</code> for each group. Let’s use this to compute the total price of all IEKA furniture items per <code>category</code>:</p>
+<pre class="r"><code>ikea %&gt;%
+  count(category, sort = TRUE, wt = price) %&gt;%
+  ggplot(aes(x = fct_reorder(category, n), y = n)) + 
+  geom_col(color = &quot;white&quot;, fill = &quot;slateblue&quot;) + 
+  labs(x = &quot;&quot;, y = &quot;Total price (measured in Saudi Riyals)&quot;, 
+       title = &quot;Total price of IKEA furniture items&quot;,
+       subtitle = &quot;(per category)&quot;, 
+       caption = &quot;Source: TidyTuesday via Kaggle and IKEA&quot;) +
+  scale_y_continuous(labels = scales::comma) +
+  coord_flip() + 
+  theme_minimal(base_size = 12)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-4-1.png" width="672" /></p>
+<p>So, if you wanted to buy <em>every</em> IKEA furniture item in <em>one</em> category (for some reason), the priciest would be <em>sofas &amp; armchairs</em>, with a total cost of 857,719 Saudi Riyals (or 228,688.78 U.S. dollars).</p>
+<p>We can also use <code>count()</code> on multiple variables, so that it gives frequencies for different combinations of variables. For example, let’s see how many items within each IKEA furniture category are <em>available in other colors</em>:</p>
+<pre class="r"><code>ikea %&gt;%
+  count(category, other_colors) %&gt;%
+  ggplot(aes(x = category, y = n, fill = other_colors)) + 
+  geom_col(color = &quot;white&quot;, position = &quot;fill&quot;) + 
+  labs(x = &quot;&quot;, y = &quot;Proportion&quot;, 
+       fill = &quot;Other colors available?&quot;,
+       title = &quot;IKEA furniture items&quot;,
+       caption = &quot;Source: TidyTuesday via Kaggle and IKEA&quot;) +
+  scale_y_continuous(labels = scales::comma) +
+  coord_flip() + 
+  theme_minimal(base_size = 12)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-5-1.png" width="672" /></p>
+</div>
+<div id="tidyruncount" class="section level1">
+<h1><code>tidyr::uncount()</code></h1>
+<p>Alright, I’ve buried this for long enough. Time to get to the real reason I set out to write this! Remember how <code>count()</code> takes a variable and <em>counts</em> up the number of cases belonging to each group within the variable?</p>
+<pre class="r"><code>ikea_counts &lt;- ikea %&gt;%
+  count(category, other_colors) 
+
+ikea_counts</code></pre>
+<pre><code>## # A tibble: 34 x 3
+##    category                   other_colors     n
+##    &lt;chr&gt;                      &lt;chr&gt;        &lt;int&gt;
+##  1 Bar furniture              No              42
+##  2 Bar furniture              Yes              5
+##  3 Beds                       No             115
+##  4 Beds                       Yes             93
+##  5 Bookcases &amp; shelving units No             319
+##  6 Bookcases &amp; shelving units Yes            229
+##  7 Cabinets &amp; cupboards       No             105
+##  8 Cabinets &amp; cupboards       Yes            187
+##  9 Café furniture             No              21
+## 10 Café furniture             Yes              5
+## # … with 24 more rows</code></pre>
+<p>The <code>uncount()</code> function does the <em>opposite</em>: It takes a <strong>counted</strong> frequency table and transforms it back to <strong>raw</strong> data, essentially doing the opposite of <code>count()</code>.</p>
+<p>I know. It blew my mind too when I found this.</p>
+<p><img src="https://media.giphy.com/media/3o8dFn5CXJlCV9ZEsg/giphy.gif" /></p>
+<p>Now let’s see it in action, using the <code>ikea_counts</code> table that I saved in the previous section. <em>Pretend</em> that this table is all we had: the <code>category</code>, whether or not furniture items within that category were <code>other_colors</code>, and the frequency of each combination.</p>
+<blockquote>
+<p>But what if we wanted the raw data back, where <em>single</em> rows corresponded to <em>single</em> observations?!</p>
+</blockquote>
+<pre class="r"><code>ikea_raw &lt;- ikea_counts %&gt;%
+  uncount(weights = n)
+
+ikea_raw</code></pre>
+<pre><code>## # A tibble: 3,694 x 2
+##    category      other_colors
+##    &lt;chr&gt;         &lt;chr&gt;       
+##  1 Bar furniture No          
+##  2 Bar furniture No          
+##  3 Bar furniture No          
+##  4 Bar furniture No          
+##  5 Bar furniture No          
+##  6 Bar furniture No          
+##  7 Bar furniture No          
+##  8 Bar furniture No          
+##  9 Bar furniture No          
+## 10 Bar furniture No          
+## # … with 3,684 more rows</code></pre>
+<p><strong>BOOM</strong>.</p>
+<p><img src="https://media.giphy.com/media/2sddCIZRYfiPlNeLZn/giphy.gif" /></p>
+<p>That’s all we need to do! The <code>uncount()</code> function from <code>tidyr</code> takes as input a <em>counted</em> dataset and <em>uncounts</em> it based on a specified <code>weights</code> column (which in this case, is just the column that gives the aggregate frequencies). Better yet, we can create that bar graph from earlier without transforming the raw data:</p>
+<pre class="r"><code>ikea_raw %&gt;%
+  ggplot(aes(x = category, fill = other_colors)) + 
+  geom_bar(color = &quot;white&quot;, position = &quot;fill&quot;) + 
+  labs(x = &quot;&quot;, y = &quot;Proportion&quot;, 
+       fill = &quot;Other colors available?&quot;,
+       title = &quot;IKEA furniture items&quot;,
+       caption = &quot;Source: TidyTuesday via Kaggle and IKEA&quot;) +
+  scale_y_continuous(labels = scales::comma) +
+  coord_flip() + 
+  theme_minimal(base_size = 12)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-8-1.png" width="672" /></p>
+<p><em>By the way</em>, I would’ve done something like this with the counted data before I found out about <code>uncount()</code>. <strong>Shield your eyes!</strong> 😨😱</p>
+<pre class="r"><code>ikea_raw = data.frame(
+  category = c(rep(&quot;Bar furniture&quot;, 42+5), rep(&quot;Beds&quot;, 115+93), ...,
+               rep(&quot;TV &amp; media furniture&quot;, 81+109), rep(&quot;Wardrobes&quot;, 193+43)), 
+  other_colors = c(rep(&quot;No&quot;, 42), rep(&quot;Yes&quot;, 5), 
+                   rep(&quot;No&quot;, 115), rep(&quot;Yes&quot;, 93), ..., 
+                   rep(&quot;No&quot;, 81), rep(&quot;Yes&quot;, 109), 
+                   rep(&quot;No&quot;, 193), rep(&quot;Yes&quot;, 43))
+)</code></pre>
+<p>Needless to say, I’m glad <code>uncount()</code> exists.</p>
+<p>To recap:</p>
+<ul>
+<li><p>We started with 3,694 rows in the original <code>ikea</code> dataset.</p></li>
+<li><p>We used <code>count()</code> to generate frequency tables on a few different variables, and one table based on <code>sum(price)</code> rather than frequency.</p></li>
+<li><p>After eventually settling on a frequency table that counted combinations of <em>two</em> variables, we applied <code>uncount()</code> to return to a dataset with 3,694 rows!</p></li>
+</ul>
+<p>Now we can use the raw data to play around again with <code>count()</code>! And rinse and repeat…</p>
+</div>

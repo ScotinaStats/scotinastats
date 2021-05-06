@@ -1,0 +1,198 @@
+---
+title: 'Art Stats with #rstats'
+author: Anthony Scotina
+date: '2021-02-28'
+slug: art-stats-with-rstats
+categories: []
+tags:
+  - rstats
+  - tidytuesday
+  - dataviz
+subtitle: ''
+summary: ''
+authors: []
+lastmod: '2021-05-06T10:05:59-04:00'
+featured: no
+image:
+  caption: ''
+  focal_point: ''
+  preview_only: true
+projects: []
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+I'm no artist, but let's try to paint a picture!
+
+In this post, we'll look at art collection data from the [Tate Art Museum](https://github.com/tategallery/collection) in Britain, compiled via [TidyTuesday](https://github.com/rfordatascience/tidytuesday/blob/master/data/2021/2021-01-12/readme.md). Because I have absolutely *no experience* in the art world, I had a couple of somewhat simple questions:
+
+- What are the trends in artwork acquisitions by Tate over time?
+- Which artists are most-represented, and do they share a common style?
+
+```{r}
+library(tidyverse)
+library(gt)
+artwork <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2021/2021-01-12/artwork.csv')
+```
+
+# The Curious Case of 1856
+
+As a first step (and usually a second, third, and fourth step!), I like to use `dplyr`'s `count()` function to quickly view the most frequent levels of some variable(s) of interest. Here, I'll apply `count()` to the `acquisitionYear` variable to view the ten years in which *Tate* acquired the most artwork (with some `gt` stuff added in as a bonus):
+
+```{r}
+artwork %>%
+  count(acquisitionYear, sort = TRUE) %>%
+  slice(1:10) %>%
+  gt() %>%
+  tab_header(
+    title = gt::html("<span style='color:#000000'>Tate Britain: Most Art Acqusitions (since 1823)</span>")
+  )  %>%
+  data_color(
+    columns = vars(n),
+    colors = scales::col_numeric(
+      palette = c("white", "#C9000C"), 
+      domain = NULL)
+  ) %>%
+  data_color(
+    columns = vars(acquisitionYear),
+    colors = c("white")
+  ) %>%
+  cols_label(
+    acquisitionYear = "Year", 
+    n = "Number"
+  ) %>%
+  tab_source_note(
+    source_note = md("Top 10 years included")
+  )
+```
+
+**Wow!** Clearly the year 1856 stands out far above the others in terms of art acquisition numbers, with *37,893*. For reference, there are *69,201* rows in the entire dataset, which means that *more than half* of *Tate's* art was acquired in a single year (assuming this dataset is complete)!
+
+Let's visualize the overall trends over time with a line graph:
+
+```{r}
+artwork %>%
+  count(acquisitionYear) %>%
+  ggplot(aes(x = acquisitionYear, y = n)) + 
+  geom_line() +
+  geom_segment(x = 1865, xend = 1860, y = 32000, yend = 33000, 
+             arrow = arrow(length = unit(0.08, "inch")), size = 0.5, 
+             color = "gray20") + 
+  annotate("text", x = 1895, y = 30000, fontface = "italic",
+           label = "Tate acquired 37,893 \n pieces of art in 1856") +
+  scale_y_continuous(labels = scales::comma) +
+  labs(x = "", y = "", 
+       title = "Yearly Art Acquisitions since 1823", 
+       subtitle = "Tate Britain", 
+       caption = "Source: {tidytuesdayR}") +
+  theme_minimal()
+```
+
+While the small spikes beginning in ~1975 are interesting, the *gigantic* spike in art acquisitions in 1856 is the big takeaway. Because the year 1856 is such an *extreme* outlier, it makes me wonder *what happened with Tate in 1856*?
+
+Excuse me for a second while I peruse [Wikipedia](https://en.wikipedia.org/wiki/Tate_Britain)...
+
+![](https://i.ytimg.com/vi/U7CZcd-UYmU/maxresdefault.jpg)
+
+# J.M.W. Turner
+
+Sure enough, *something* happened in 1856 that helped explain the gigantic spike in *Tate* acquisitions. As it turns out, a prolific artist by the name of [*Joseph Mallord William (J.M.W.) Turner*](https://en.wikipedia.org/wiki/J._M._W._Turner#Legacy) died in 1851, and after a lengthy court battle, his finished paintings were bequeathed to the British nation. The main part of J.M.W. Turner's bequest consisted of unfinished paintings and drawings, which in 1910 was rehoused in the Duveen Turner wing at *Tate* (formerly known as the *National Gallery of British Art*). 
+
+That's an interesting history lesson - now let's dive back into the data! Sure enough, most of the large spike in the acquisitions from 1856 can be attributed to J.M.W. Turner:
+
+```{r}
+artwork %>%
+  filter(acquisitionYear == 1856) %>%
+  count(artist, sort = TRUE) %>%
+  slice(1:5) %>%
+  gt() %>%
+  tab_header(
+    title = gt::html("<span style='color:#000000'>Tate Britain: Most Art Acqusitions in 1856 (per artist)</span>")
+  )  %>%
+  data_color(
+    columns = vars(n),
+    colors = scales::col_numeric(
+      palette = c("white", "#C9000C"), 
+      domain = NULL)
+  ) %>%
+  data_color(
+    columns = vars(artist),
+    colors = c("white")
+  ) %>%
+  cols_label(
+    artist = "Artist", 
+    n = "Number"
+  ) %>%
+  tab_source_note(
+    source_note = md("Top 5 artists in 1856 included")
+  )
+```
+
+Next, I wanted to take a deeper dive into J.M.W. Turner's style. The figure below looks at his most frequently-used mediums. As the graph suggests, most of his work used the *graphite on paper* medium, which makes sense considering that the main part of his bequest consisted of unfinished paintings and drawings. 
+
+```{r}
+artwork %>%
+  filter(artist == "Turner, Joseph Mallord William") %>%
+  mutate(medium = fct_lump(medium, 5), 
+         highlight = fct_other(medium, 
+                               keep = "Graphite on paper", 
+                               other_level = "Other")) %>%
+  drop_na(medium) %>%
+  ggplot(aes(x = fct_rev(fct_infreq(medium)), fill = highlight)) + 
+  geom_bar() + 
+  labs(x = "", y = "", 
+       title = "J.M.W. Turner", 
+       subtitle = "Top Mediums Used") +
+  scale_y_continuous(labels = scales::comma) +
+  scale_fill_manual(values = c(
+    Other = "gray", `Graphite on paper` = "#8C72D2"
+  ), 
+  guide = "none") +
+  coord_flip() + 
+  theme_minimal()
+```
+
+# Wrapping It Up
+
+I went into this project not really knowing what to expect, due to my total inexperience in the area. I wanted to investigate trends in art acquisitions and artistic mediums of works housed at *Tate*, but this ended up being all about *J.M.W. Turner*. His work accounts for over half of all works in the data, and as such his common *graphite on paper* medium also overshadows those of other works. 
+
+For fun, let's see which mediums are used the most among *non-J.M.W. Turner art* housed at *Tate*. 
+
+```{r, echo = FALSE}
+library(patchwork)
+
+p1 = artwork %>%
+  filter(artist != "Turner, Joseph Mallord William") %>%
+  count(medium, sort = TRUE) %>%
+  slice(1:10) %>%
+  ggplot(aes(x = fct_reorder(medium, n), y = n, fill = fct_reorder(medium, n))) + 
+  geom_col(fill = "#8C72D2") + 
+  labs(x = "", y = "", 
+       title = "All Tate Artists (except for J.M.W. Turner)", 
+       subtitle = "Top Mediums Used") +
+  scale_y_continuous(labels = scales::comma) +
+  coord_flip() + 
+  theme_minimal() + 
+  theme(legend.position = "none")
+
+p2 = artwork %>%
+  filter(medium %in% c("Oil paint on canvas", "Screenprint on paper", "Lithograph on paper")) %>%
+  count(acquisitionYear, medium) %>%
+  ggplot(aes(x = acquisitionYear, y = n, linetype = medium, color = medium)) + 
+  geom_line(size = 1) + 
+  scale_y_continuous(labels = scales::comma) +
+  labs(x = "", y = "", color = "", linetype = "",
+       title = "Yearly Art Acquisitions since 1823", 
+       subtitle = "Top 3 non-JMW Turner Mediums") +
+  theme_minimal()
+
+p1 / p2
+```
+
+While *oil paint on canvas* is the most frequently-used medium by *Tate* artists *besides* J.M.W. Turner, most of these works were acquired by *Tate* before 1950. There's a large spike around 1975 in *lithograph* and *screenprint* acquisitions that does *not* seem to be tied to a single artist (data not shown). Finding the source of this spike is a painting for another day.
+
+Thanks for reading!
+
+![](https://media.giphy.com/media/AbPNdmgk6TJK/giphy.gif)

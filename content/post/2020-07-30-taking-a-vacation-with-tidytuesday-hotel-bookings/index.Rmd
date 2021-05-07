@@ -11,7 +11,6 @@ tags:
 subtitle: ''
 summary: ''
 authors: []
-lastmod: '2021-05-06T10:04:01-04:00'
 featured: no
 image:
   caption: ''
@@ -31,7 +30,7 @@ theme_set(theme_minimal())
 
 The [tidymodels](https://www.tidymodels.org/) suite of packages is fantastic. As the website states, `tidymodels` "is a collection of packages for modeling and machine learning using `tidyverse` principles". These packages range from tools used to split your data into training and testing sets, to tools for optimizing model hyperparameters. 
 
-We'll build a simple machine learning model to predict the hotel stay **season**, using [hotel bookings data](https://github.com/rfordatascience/tidytuesday/blob/master/data/2020/2020-02-11/readme.md) from TidyTuesday. This dataset originally comes from a paper by [Antonio, Almeida, and Nunes (2019)](https://www.sciencedirect.com/science/article/pii/S2352340918315191#f0010), which states that the hotels are located in Portugal. 
+We'll build a simple machine learning model to predict the hotel stay **season**, using [hotel bookings data](https://github.com/rfordatascience/tidytuesday/blob/master/data/2020/2020-02-11/readme.md) from TidyTuesday. This dataset originally comes from a paper by [Antonio, Almeida, and Nunes (2019)](https://www.sciencedirect.com/science/article/pii/S2352340918315191#f0010), which states that the hotels are located in Portugal.  
 
 ```{r, eval = FALSE}
 library(tidyverse)

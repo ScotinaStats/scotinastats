@@ -11,7 +11,6 @@ tags:
 subtitle: ''
 summary: ''
 authors: []
-lastmod: '2021-05-06T10:06:53-04:00'
 featured: no
 image:
   caption: '[Photo by Andrew Neel on Unsplash](https://unsplash.com/photos/cckf4TsHAuw)'
@@ -32,7 +31,7 @@ In this post, we'll walk through some of the basics to getting a website up and 
 
 You might be thinking: "I knew RStudio was *amazing*, but I can make websites in RStudio, too?!" Yup. Enter `blogdown`. 
 
-# Getting Started with `blogdown`
+# Getting Started with `blogdown` 
 
 First thing's first: Install the `blogdown` package, followed by the static site generator, [Hugo](https://gohugo.io/). 
 

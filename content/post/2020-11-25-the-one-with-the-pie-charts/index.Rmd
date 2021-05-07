@@ -11,7 +11,6 @@ tags:
 subtitle: ''
 summary: ''
 authors: []
-lastmod: '2021-05-06T10:05:12-04:00'
 featured: no
 image:
   caption: ''
@@ -32,7 +31,7 @@ In fact, research dating back to the 1980s shows that humans have a much stronge
 
 I go on this rant in my Statistics classes all the time ^[Although, I call pie charts the *Ben Affleck version of Batman of data visualization*.]; to my students none of the above is new and is almost as commonplace in one of my classes as a separate rant about the general *awesomeness* of R. But one thing that always trips me is when I get trolled into showing my students how to create pie charts in R. I always forget how to make them in R, because I *never* make them in R! That's what this post is about. I'm going to describe/teach myself one way to make pie charts in R via `{ggplot2}`, and then we'll forget this ever happened and go back to using bar graphs for everything. 
 
-# Pie Charts
+# Pie Charts 
 
 We'll be using transcript data from the `{friends}` package, which is also [available via TidyTuesday](https://github.com/rfordatascience/tidytuesday/blob/master/data/2020/2020-09-08/readme.md). Our goal is to see which of the **five main characters** has *the most lines*, both overall and per season. 
 

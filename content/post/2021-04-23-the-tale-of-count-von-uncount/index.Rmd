@@ -11,7 +11,6 @@ tags:
 subtitle: ''
 summary: ''
 authors: []
-lastmod: '2021-05-06T10:07:58-04:00'
 featured: no
 image:
   caption: ''
@@ -30,7 +29,7 @@ Through this short exercise, I found a bunch of *super* helpful functions that I
 
 I know, my mind is blown, too! Before we get more into what `uncount()` does, let's first motivate its use by working through an example with `dplyr::count()`. 
 
-# `dplyr::count()`
+# `dplyr::count()` 
 
 The `count()` function from `{dplyr}` is one of my all-time favorite R functions, due in part to its simplicity. All you do is pass a variable to `count()` and it *counts* up the number of occurrences of unique values for that variable! Suppose one wanted to count the number of IKEA furniture items belonging to certain categories (beds, sofas, chairs, etc.). Does that sound oddly specific? It's because we can actually do this using [IKEA furniture data from TidyTuesday](https://github.com/rfordatascience/tidytuesday/blob/master/data/2020/2020-11-03/readme.md)!
 

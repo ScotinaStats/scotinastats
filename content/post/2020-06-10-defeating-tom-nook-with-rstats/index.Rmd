@@ -11,7 +11,6 @@ tags:
 subtitle: ''
 summary: ''
 authors: []
-lastmod: '2021-05-06T10:02:43-04:00'
 featured: no
 image:
   caption: ''
@@ -35,7 +34,7 @@ loadfonts()
 ggthemr("grape", type = "outer", layout = "minimal")
 ```
 
-I love Animal Crossing. 
+I love Animal Crossing.  
 
 For those unfamiliar, [Animal Crossing](https://en.wikipedia.org/wiki/Animal_Crossing) is a social simulation video game franchise, where you play as a *human* living in a village inhabiting by talking animals. There is really *no point* to the game other than paying off your house loans and building up your village through crafting, fishing, bug hunting, planting, etc. There are endless possibilities and you can play at *entirely your own pace*, which is why it is so appealing and inviting to many different play styles. 
 

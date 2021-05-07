@@ -11,7 +11,6 @@ tags:
 subtitle: ''
 summary: ''
 authors: []
-lastmod: '2021-05-06T10:05:59-04:00'
 featured: no
 image:
   caption: ''
@@ -37,7 +36,7 @@ library(gt)
 artwork <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2021/2021-01-12/artwork.csv')
 ```
 
-# The Curious Case of 1856
+# The Curious Case of 1856 
 
 As a first step (and usually a second, third, and fourth step!), I like to use `dplyr`'s `count()` function to quickly view the most frequent levels of some variable(s) of interest. Here, I'll apply `count()` to the `acquisitionYear` variable to view the ten years in which *Tate* acquired the most artwork (with some `gt` stuff added in as a bonus):
 

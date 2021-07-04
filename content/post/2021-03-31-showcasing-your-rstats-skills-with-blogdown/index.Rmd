@@ -25,6 +25,12 @@ knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
 
 I'm teaching an Introduction to Data Science course this semester, and one of the overarching themes is *building a data science project portfolio*. To facilitate this, students have four "mini-projects" in the form of blog posts, where they can explore different pieces of the [data science pipeline](https://r4ds.had.co.nz/explore-intro.html) such as **data visualization**, **data wrangling**, **modeling**, and **communication**. 
 
+* * * 
+
+**Note**: This post is a bit outdated as of the `{blogdown}` [Version 1.0](https://blog.rstudio.com/2021/01/18/blogdown-v1.0/) update. I hope to write an updated post at some point soon!
+
+* * * 
+
 The idea of blogging to communicate data science projects certainly isn't new and has been recommended in a [post](http://varianceexplained.org/r/start-blog/) by David Robinson, the wonderful [Build a Career in Data Science](https://www.manning.com/books/build-a-career-in-data-science) book by Emily Robinson and Jacqueline Nolis, and many other sources! But the main "deliverables" for the mini-project assignments in my Data Science class are static HTML files generated via **R Markdown** - I wanted to additionally show my students how they can host data science blog posts on a website, so they can easily share on social media or with friends, pets, mentors, potential employers, etc.
 
 In this post, we'll walk through some of the basics to getting a website up and running in RStudio. And I stress *basics* here, because I have minimal experience with web design and CSS (cascading style sheets).

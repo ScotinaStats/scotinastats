@@ -1,0 +1,146 @@
+---
+title: SQL and R and Mookie Betts, oh my!
+author: Anthony Scotina
+date: '2021-07-04'
+slug: sql-and-r-and-mookie-betts-oh-my
+categories: []
+tags:
+  - rstats
+  - sql
+  - baseball
+subtitle: ''
+summary: ''
+authors: []
+featured: no
+image:
+  caption: ''
+  focal_point: ''
+  preview_only: true
+projects: []
+---
+
+<script src="{{< blogdown/postref >}}index.en_files/header-attrs/header-attrs.js"></script>
+
+
+<p>Mookie Betts is very good at baseball. As a fan of the Boston Red Sox, I was devastated when they traded him. I wanted him to play for the Red Sox for the rest of his career, and as an armchair baseball executive, I would’ve given Mookie whatever amount of my fake money that he wanted. But he plays for the Los Angeles Dodgers now, recently signed a <a href="https://www.si.com/mlb/2020/07/24/mookie-betts-dodgers-contract-2044-deferrals">MASSIVE contract</a>, and won a World Series last year. He’s great for baseball, and for that I am glad. But as a Red Sox fan, I can’t help but ask “What if?” every time I see him do something amazing for his new team.</p>
+<p>Alright, I’ve buried the lede for long enough! This post is about working with SQL databases within RStudio, which is <a href="https://blog.rstudio.com/2018/10/02/rstudio-1-2-preview-sql/">something you can do</a> as of, I believe, RStudio Version 1.2. Specifically, we will use SQL <em>and</em> R to compare Mookie Betts to several legendary MLB outfielders.</p>
+<p>To begin, we’ll load the necessary R packages, create an in-memory SQLite database in R called <code>mlb_con</code>, and load two data tables, <code>Batting</code> and <code>Master</code> from the <code>{Lahman}</code> package, into that database:</p>
+<div id="creating-a-sqlite-database" class="section level1">
+<h1>Creating a SQLite Database</h1>
+<pre class="r"><code>library(tidyverse)
+library(Lahman)
+library(DBI)
+library(RSQLite)
+
+mlb_con &lt;- dbConnect(SQLite(), dbname = &quot;:memory:&quot;)
+dbWriteTable(mlb_con, &quot;batting_table&quot;, Batting)
+dbWriteTable(mlb_con, &quot;master_table&quot;, Master)</code></pre>
+<p>Now that <code>Batting</code> and <code>Master</code> are saved in our SQLite database under the aliases <code>batting_table</code> and <code>master_table</code>, we <em>could</em> paste a SQL query into <code>DBI::dbGetQuery()</code> to execute the query in an R script. We would need to repeat this process for each query, which is not exactly <em>ideal</em>. Luckily, we have R Markdown and can split our code into separate R and SQL code chunks!</p>
+</div>
+<div id="data-wrangling-in-sql" class="section level1">
+<h1>Data Wrangling in SQL</h1>
+<p>Let’s return to the opening for a second: Mookie Betts is very good at baseball. I want to show <em>how</em> good Mookie Betts is, by comparing him to several other players on some metric. We’ll use <strong>on-base plus slugging percentage (OPS)</strong>; it is <a href="https://library.fangraphs.com/offense/ops/">not the <em>best</em> statistic out there</a>, but it will do for now.</p>
+<p>We’ll compare Mookie Betts to the following players: Ken Griffey Jr, Vladimir Guerrero, Larry Walker, and Mike Trout. Griffey, Guerrero, and Walker are all recent inductees into the <em>Hall-of-Fame</em>, and are three of the best players of my generation. Mike Trout is an active player, and he is possibly <em>the best</em> player of my generation. In my opinion, he could retire today (he is only 29 as of this writing) and be inducted into the HoF in his first eligible year.</p>
+<p>The data are not exactly in the form that we need yet; there isn’t an <em>OPS</em> column, full name is separated into two columns, and different variables that we need appear in one or both of the <code>Batting</code> and <code>Master</code> tables from the <code>{Lahman}</code> package. In short, we’ll need to perform the following wrangling steps before we can compare OPS over time for each player:</p>
+<ol style="list-style-type: decimal">
+<li><p><strong>Join</strong> <code>batting_table</code> and <code>master_table</code> together. The <code>batting_table</code> contains <em>counting stats</em> that we’ll need to calculate <em>OPS</em> for each player <em>per season</em>, and <code>master_table</code> contains biographical information for each player, such as name and birth year. The <em>common key</em> on which we’ll join the tables is <code>playerID</code>, each player’s ID code.</p></li>
+<li><p><strong>Filter</strong> the <em>joined table</em> on the five players we plan to compare. We can filter on one of several variables that uniquely identify each player, but we will use <code>playerID</code>.</p></li>
+<li><p><strong>Create new column</strong> consisting of:</p>
+<ul>
+<li>The first and last names combined in a single column, separated by a space – this new column will be called <code>name</code>. This will be helpful for plotting purposes later on.</li>
+<li>The <em>age</em> of each player, in each year.</li>
+</ul></li>
+<li><p><strong>Group by</strong> <code>name</code> and <code>yearID</code> and calculate the <em>on-base percentage</em> (OBP), <em>slugging percentage</em> (SLG), and the <strong>OPS</strong> as a sum of the former two summary metrics.</p></li>
+<li><p><strong>Order</strong> the resulting table by <code>name</code> (i.e., <em>alphabetical</em>) and <code>yearID</code> (in ascending order).</p></li>
+</ol>
+<p>We can accomplish this with a SQL query in RStudio by creating a <em>SQL code chunk</em>, rather than an <em>R code chunk</em>, in R Markdown:</p>
+<p><img src="chunk_example.png" /></p>
+<p>Thus, we can enter a SQL query into the first code chunk, save the resulting table as <code>ops_table</code>, and then we can analyze the table in R! Enter the following query into a SQL code chunk:</p>
+<pre class="sql"><code>SELECT nameFirst || &quot; &quot; || nameLast AS name,
+yearID, 
+(yearID - master_table.birthYear) AS age, 
+1.0*(H + BB + HBP) / (AB + BB + SF + HBP) AS OBP, 
+1.0*(H + X2B + 2*X3B + 3*HR) / AB AS SLG, 
+1.0*(H + BB + HBP) / (AB + BB + SF + HBP) + 1.0*(H + X2B + 2*X3B + 3*HR) / AB AS OPS
+FROM batting_table LEFT JOIN master_table ON batting_table.playerID = master_table.playerID
+WHERE batting_table.playerID IN (&quot;bettsmo01&quot;, &quot;troutmi01&quot;, &quot;walkela01&quot;, &quot;griffke02&quot;, &quot;guerrvl01&quot;)
+GROUP BY name, yearID
+ORDER BY name, yearID</code></pre>
+<p><img src="https://media.giphy.com/media/iq0JNxGPMERCMN7x0O/giphy.gif" /></p>
+<p>I want to reiterate that I ran this query <em>in R</em>. I think that’s so cool!</p>
+<p>A few notes on this SQL query:</p>
+<ul>
+<li>SQL code is not exactly “well-ordered”, and each element is not necessarily listed out in the order that they are executed (and that I listed out beforehand). I learned R <em>before</em> SQL, and while SQL queries are very similar to a <code>dplyr</code> pipeline, this can be tricky sometimes. Generally the order of SQL elements follows a format like this:
+<ul>
+<li><strong>SELECT</strong></li>
+<li><strong>FROM</strong> (followed by a <strong>JOIN</strong>, if applicable)</li>
+<li><strong>WHERE</strong></li>
+<li><strong>GROUP BY</strong></li>
+<li><strong>HAVING</strong></li>
+<li><strong>UNION</strong></li>
+<li><strong>ORDER BY</strong></li>
+<li><strong>LIMIT</strong></li>
+</ul></li>
+<li>We multiply the <code>OBP</code>, <code>SLG</code>, and <code>OPS</code> definitions by <code>1.0</code> to convert them to <strong>floating point</strong> format. Because each of the elements involved in the calculations are <em>integers</em>, these definitions will each return values of <code>0</code> if not converted to floating point first. This can come up when <em>dividing by integers</em>.</li>
+<li>An <strong>INNER JOIN</strong> would also work here, because five players we’re comparing appear in both <code>batting_table</code> and <code>master_table</code>.
+<strong>FYI</strong>: An equivalent query in R using a <code>dplyr</code> pipeline (in an R code chunk!) would look like this:</li>
+</ul>
+<pre class="r"><code>ops_table &lt;- Batting %&gt;%
+  left_join(Master, by = &quot;playerID&quot;) %&gt;%
+  filter(playerID %in% c(&quot;bettsmo01&quot;, &quot;troutmi01&quot;, &quot;walkela01&quot;, &quot;griffke02&quot;, &quot;guerrvl01&quot;)) %&gt;%
+  mutate(age = yearID - birthYear) %&gt;%
+  unite(&quot;name&quot;, nameFirst:nameLast, sep = &quot; &quot;) %&gt;%
+  group_by(name, age, yearID) %&gt;%
+  summarize(OBP = sum(H + BB + HBP) / sum(AB + BB + SF + HBP),
+            SLG = sum(H + X2B + 2*X3B + 3*HR) / sum(AB), 
+            OPS = OBP + SLG) %&gt;%
+  ungroup() %&gt;%
+  arrange(name, yearID)</code></pre>
+</div>
+<div id="data-visualization-in-r" class="section level1">
+<h1>Data Visualization in R</h1>
+<p>Now that we have the <code>ops_table</code> object saved in our current R session<a href="#fn1" class="footnote-ref" id="fnref1"><sup>1</sup></a>, we can use it in R code chunks! For example, let’s take a quick snapshot of the data:</p>
+<pre class="r"><code>set.seed(228)
+ops_table %&gt;%
+  slice_sample(n = 5)</code></pre>
+<pre><code>##                name yearID age       OBP       SLG       OPS
+## 1 Vladimir Guerrero   2002  27 0.4174894 0.5928339 1.0103233
+## 2      Mookie Betts   2017  25 0.3441011 0.4585987 0.8026998
+## 3        Mike Trout   2011  20 0.2814815 0.3902439 0.6717254
+## 4 Vladimir Guerrero   2003  28 0.4261242 0.5862944 1.0124186
+## 5      Mookie Betts   2014  22 0.3679245 0.4444444 0.8123690</code></pre>
+<p>Better yet, we can use <code>ggplot2</code> to create a visualization of OPS over time for each player:</p>
+<pre class="r"><code>ops_table %&gt;%
+  ggplot(aes(x = age, y = OPS, color = name)) + 
+  geom_smooth(se = FALSE) + 
+  labs(x = &quot;Age&quot;, y = &quot;On-base Plus Slugging (OPS)&quot;, 
+       color = &quot;&quot;,
+       title = &quot;How does Mookie compare to other legendary OFs?&quot;) +
+  theme_bw() + 
+  theme(legend.position = &quot;top&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index.en_files/figure-html/unnamed-chunk-6-1.png" width="672" /></p>
+<p>So, how does Mookie Betts stack up against a few of the game’s greats? A few observations:</p>
+<ul>
+<li>In terms of OPS, Vladimir Guerrero and Ken Griffey Jr had similar peaks. Though, Griffey had several injury-filled seasons in the second-half of his career and was <em>still</em> quite productive.</li>
+<li>Larry Walker had a major surge in production beginning in his late-20s. Some might say this was because he played half his games in the thin air of Colorado, but he was still incredible in those years. Plus, he wore <a href="https://www.si.com/extra-mustard/2020/01/22/larry-walker-hall-of-fame-spongebob-squarepants-shirt">one of the greatest shirts of all time</a> on the day he got his Hall-of-Fame call, and we can’t forget that.</li>
+<li>Mike Trout is incredible, and who knows when he’ll slow up! He’s dealing with injuries this year, and for the sake of baseball, I hope he’s back and healthy soon.</li>
+<li>Mookie Betts has an interesting early-career OPS curve. His career-high OPS came in his age-25 season in 2018, when he won MVP and the Boston Red Sox won 108 games and the World Series. He’s been very good otherwise, and like Mike Trout, he isn’t really showing much sign of slowing up. Mookie Betts is also <a href="https://www.youtube.com/watch?v=grFyRkJjZ5M&amp;ab_channel=MLB">an elite fielder</a> and baserunner, two things that aren’t reflected in OPS.</li>
+</ul>
+</div>
+<div id="final-thoughts" class="section level1">
+<h1>Final Thoughts</h1>
+<p>Mookie Betts is very good – he is a generational baseball talent and a <a href="https://www.yahoo.com/now/mookie-betts-is-a-great-baseball-player-did-you-know-hes-good-enough-to-be-a-pro-bowler-too-234947953.html">pretty good bowler</a>, too. And if he wanted to dabble in Statistics and Data Science, he could use R Markdown to execute SQL and R code in a single document!</p>
+<p>In theory, we <em>could’ve</em> done all of this analysis with just R, since the data that we used are from the <code>{Lahman}</code> R package. But if you, an R user, are working with someone who prefers to work with SQL databases, R affords us that flexibility. We can <em>also</em> execute <strong>Python</strong> code in R, but that’s a post for another day!</p>
+<p><img src="https://media.giphy.com/media/z8G87FLCi46uA/giphy.gif" /></p>
+<p>A couple additional references:</p>
+<ul>
+<li><a href="https://medium.com/@skyetetra/pretending-to-have-a-sql-database-with-rstudio-e80d9a1338b1">Pretending to have a SQL database with RStudio</a> by Jacqueline Nolis</li>
+<li><a href="https://db.rstudio.com/getting-started/database-queries/">Database Queries With R</a> by the RStudio Team.</li>
+</ul>
+</div>
+<div class="footnotes">
+<hr />
+<ol>
+<li id="fn1"><p>Note that we have <strong>not</strong> added this to our <code>mlb_con</code> SQLite database. Though, we could do this with <code>RSQLite::dbWriteTable()</code>.<a href="#fnref1" class="footnote-back">↩︎</a></p></li>
+</ol>
+</div>
